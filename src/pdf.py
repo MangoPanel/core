@@ -1,24 +1,32 @@
 import pymupdf
 import os
+from pathlib import Path
 
 class Document:
-    def __init__(self, path):
+    def __init__(self, path: Path):
         self.path = path
+        self._normalize_to_img()
+        self._pages = sorted(path.iterdir())
 
-    def save_to_pdf(self, output_path=None):
-        if not output_path:
-            output_path = self.path.join("/pdf")
-            
-        filedir = self.path
+    def __iter__(self):
+        self._index = 0
+        return self
 
+    def __next__(self):
+        if self._index >= len(self._pages):
+            raise StopIteration
+        self._index = self._index + 1
+        return self.get_page(self._index)
+
+    def get_page(self, index):
+        file_path = self.path / index
+        with open(file_path) as page:
+            return page
+
+    def _normalize_to_img(self):
         try:
-            filelist = os.listdir(filedir)
-
-            doc = pymupdf.open()
-
-            for i, f in enumerate(filelist):
-                file_path = os.path.join(filedir, f)
-                _n, ext = os.path.splitext(file_path)
+            for file in self.path.iterdir():
+                """TODO"""
                 match ext:
                     case ".pdf":
                         pdf_page = pymupdf.open(file_path)
@@ -28,6 +36,9 @@ class Document:
                         self._convert_img_to_page(f, filedir, doc)
                     case _:
                         raise pymupdf.FileDataError("Invalid data type")
+        
+
+    def save_to_pdf(self, output_path=None):
             
                         
             doc.save(output_path)
@@ -50,3 +61,10 @@ class Document:
             print(f"Failed while processing {img_path} with:", e)
             raise
 
+    def paint_rectangle(self, rect):
+        """
+        Paint rectangle on given coordinates
+        """
+        ...
+
+    
