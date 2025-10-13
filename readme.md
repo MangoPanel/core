@@ -1,3 +1,8 @@
+### Instalation
+
+## Install using uv:
+uv pip install . --index-strategy unsafe-best-match
+
 ### contributing
 
 Commit to your own branch.
