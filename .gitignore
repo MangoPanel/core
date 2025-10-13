@@ -1,2 +1,3 @@
 build/
-mango_panel.egg-info/
+src/mango_panel.egg-info/
+output/

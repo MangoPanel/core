@@ -19,6 +19,7 @@ dependencies = [
     "langgraph",
     "paddlepaddle-gpu==3.0.0",
     "paddleocr[all]",
+    "PyMuPDF",
 ]
 
 [tool.setuptools.packages.find]
