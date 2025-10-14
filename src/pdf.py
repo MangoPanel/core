@@ -2,10 +2,10 @@ import pymupdf
 import os
 from pathlib import Path
 
-class Document:
+class Manga:
     def __init__(self, path: Path):
         self.path = path
-        self._normalize_to_img()
+        self._normalize_to_png()
         self._pages = sorted(path.iterdir())
 
     def __iter__(self):
@@ -18,48 +18,49 @@ class Document:
         self._index = self._index + 1
         return self.get_page(self._index)
 
+    def __fspath__(self):
+        return self.path
+
     def get_page(self, index):
         file_path = self.path / index
         with open(file_path) as page:
             return page
 
-    def _normalize_to_img(self):
-        try:
-            for file in self.path.iterdir():
-                """TODO"""
-                match ext:
-                    case ".pdf":
-                        pdf_page = pymupdf.open(file_path)
-                        doc.insert_pdf(pdf_page)
-                        pdf_page.close()
-                    case ".jpg" | ".jpeg" | ".png":
-                        self._convert_img_to_page(f, filedir, doc)
-                    case _:
-                        raise pymupdf.FileDataError("Invalid data type")
+    def _normalize_to_png(self):
+        for i, file in sorted(self.path.iterdir()):
+            if not file.is_file():
+                raise IsADirectoryError("Not a file. This is probably a directory")
+            ext = file.suffix
+            match ext:
+                case ".pdf":
+                    try:
+                        doc = pymupdf.open(file)
+                    except:
+                        raise FileNotFoundError(f"{file} failed to open")
+                    for page in doc:
+                        pix = page.get_pixmap()
+                            pix.save(f"{page.number:03d}.png")
+                case ".jpg" | ".jpeg" | ".png":
+                        file.rename(f"{i:03d}.png")
+                case _:
+                    raise pymupdf.FileDataError("Invalid data type")
         
-
     def save_to_pdf(self, output_path=None):
-            
-                        
-            doc.save(output_path)
-        except Exception as e:
-            print("Failed saving to pdf:", e)
-            raise
+        if not output_path:
+            output_path = self.path / pdf /
 
-    def _convert_img_to_page(self, file, imgdir, doc):
+        doc = pymupdf.open()
 
-        img_path = os.path.join(imgdir, file)
-        try:
-            img = pymupdf.open(img_path)
+        for page in self._pages:
+            img = pymupdf.open(page)
             rect = img[0].rect
             pdfbytes = img.convert_to_pdf()
             img.close()
             imgPDF = pymupdf.open("pdf", pdfbytes)
             page = doc.new_page(width=rect.width, height=rect.height)
             page.show_pdf_page(rect, imgPDF, 0)
-        except Exception as e:
-            print(f"Failed while processing {img_path} with:", e)
-            raise
+        
+        doc.save(output_path)
 
     def paint_rectangle(self, rect):
         """
@@ -67,4 +68,4 @@ class Document:
         """
         ...
 
-    
+
