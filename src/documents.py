@@ -1,5 +1,8 @@
+from typing import override
 import pymupdf
 from pathlib import Path
+import json
+
 
 class IterablePageCollection:
     def __init__(self, path: Path):
@@ -44,12 +47,12 @@ class Manga(IterablePageCollection):
                         raise FileNotFoundError(f"{file} failed to open")
                     for page in doc:
                         pix = page.get_pixmap()
-                        pix.save(f"{page.number:03d}.png")
+                        pix.save(f"input/test/{page.number:03d}.png")
                 case ".jpg" | ".jpeg" | ".png":
-                        file.rename(f"{i:03d}.png")
+                    file.rename(f"input/test/{i:03d}.png")
                 case _:
                     raise pymupdf.FileDataError("Invalid data type")
-        
+
     def save_to_pdf(self, output_path=None):
         if not output_path:
             output_path = self.path / "pdf"
@@ -64,13 +67,16 @@ class Manga(IterablePageCollection):
             imgPDF = pymupdf.open("pdf", pdfbytes)
             page = doc.new_page(width=rect.width, height=rect.height)
             page.show_pdf_page(rect, imgPDF, 0)
-        
+
         doc.save(output_path)
 
 
-
-class MangaOCRRes(IterablePageCollection):
+class MangaJSONRepresentation(IterablePageCollection):
     def __init__(self, path: Path):
         super().__init__(path)
 
-    
+    @override
+    def get_page(self, index):
+        file_path = self._pages[index]
+        with open(file_path) as json_page:
+            return json.load(json_page)
