@@ -36,7 +36,7 @@ def ocr(state: GeneralState) -> GeneralState:
     representation = MangaJSONRepresentation(Path("output"))
 
     for i, page in enumerate(representation):
-        print(f"{i}page: {page['rec_texts']}")
+        print(f"Text from page {i}: {page['rec_texts']}")
 
     state["oryginal_manga"].save_to_pdf()
 

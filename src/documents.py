@@ -55,7 +55,7 @@ class Manga(IterablePageCollection):
 
     def save_to_pdf(self, output_path=None):
         if not output_path:
-            output_path = self.path / "pdf"
+            output_path = "output/test_pdf.pdf"
 
         doc = pymupdf.open()
 
