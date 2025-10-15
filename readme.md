@@ -1,7 +1,25 @@
-### Instalation
+## Instalation
 
-## Install using uv:
+## Install via pip or uv pip:
+Strongly recommend to make a virtual env using uv first:
+```bash
+uv venv
+```
+First install the PaddlePaddle package of your choice:
+```bash
+# CPU
+python -m pip install paddlepaddle==3.0.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+
+# gpu，requires GPU driver version ≥450.80.02 (Linux) or ≥452.39 (Windows)
+ python -m pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+
+# gpu，requires GPU driver version ≥550.54.14 (Linux) or ≥550.54.14 (Windows)
+ python -m pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+```
+Then you can use the automatic installation procedure based on pyproject.toml
+```bash
 uv pip install . --index-strategy unsafe-best-match
+```
 
 ### contributing
 

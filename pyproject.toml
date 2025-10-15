@@ -24,16 +24,3 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pip]
-index-url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
-extra-index-url = "https://pypi.org/simple/"
-trusted-host = ["www.paddlepaddle.org.cn"]
-
-[[tool.uv.index]]
-url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
-default = true
-
-[[tool.uv.index]]
-url = "https://pypi.org/simple/"
-
