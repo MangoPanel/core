@@ -1,11 +1,9 @@
 import pymupdf
-import os
 from pathlib import Path
 
-class Manga:
+class IterablePageCollection:
     def __init__(self, path: Path):
         self.path = path
-        self._normalize_to_png()
         self._pages = sorted(path.iterdir())
 
     def __iter__(self):
@@ -15,19 +13,26 @@ class Manga:
     def __next__(self):
         if self._index >= len(self._pages):
             raise StopIteration
+        page = self.get_page(self._index)
         self._index = self._index + 1
-        return self.get_page(self._index)
+        return page
 
     def __fspath__(self):
         return self.path
 
     def get_page(self, index):
-        file_path = self.path / index
+        file_path = self._pages[index]
         with open(file_path) as page:
             return page
 
-    def _normalize_to_png(self):
-        for i, file in sorted(self.path.iterdir()):
+
+class Manga(IterablePageCollection):
+    def __init__(self, path: Path):
+        self._normalize_to_png(path)
+        super().__init__(path)
+
+    def _normalize_to_png(self, path):
+        for i, file in enumerate(sorted(path.iterdir())):
             if not file.is_file():
                 raise IsADirectoryError("Not a file. This is probably a directory")
             ext = file.suffix
@@ -35,11 +40,11 @@ class Manga:
                 case ".pdf":
                     try:
                         doc = pymupdf.open(file)
-                    except:
+                    except Exception:
                         raise FileNotFoundError(f"{file} failed to open")
                     for page in doc:
                         pix = page.get_pixmap()
-                            pix.save(f"{page.number:03d}.png")
+                        pix.save(f"{page.number:03d}.png")
                 case ".jpg" | ".jpeg" | ".png":
                         file.rename(f"{i:03d}.png")
                 case _:
@@ -47,7 +52,7 @@ class Manga:
         
     def save_to_pdf(self, output_path=None):
         if not output_path:
-            output_path = self.path / pdf /
+            output_path = self.path / "pdf"
 
         doc = pymupdf.open()
 
@@ -62,10 +67,10 @@ class Manga:
         
         doc.save(output_path)
 
-    def paint_rectangle(self, rect):
-        """
-        Paint rectangle on given coordinates
-        """
-        ...
 
 
+class MangaOCRRes(IterablePageCollection):
+    def __init__(self, path: Path):
+        super().__init__(path)
+
+    

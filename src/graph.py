@@ -5,6 +5,7 @@ from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage, AIMessage
 import json
 from pdf import Manga
+from pathlib import Path
 
 from paddleocr import PaddleOCR
 
@@ -46,7 +47,7 @@ graph.set_entry_point("ocr")
 
 app = graph.compile()
 
-app_res = app.invoke({"oryginal_manga": Manga("input/test"), 
+app_res = app.invoke({"oryginal_manga": Manga(Path("input/test")), 
                       "inpainted_manga": None, 
                       "translated_manga": None})
 
