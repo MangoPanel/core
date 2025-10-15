@@ -18,7 +18,7 @@ uv pip install paddlepaddle-gpu==3.0.0 -i https://www.paddlepaddle.org.cn/packag
 ```
 Then you can use the automatic installation procedure based on pyproject.toml
 ```bash
-uv pip install . --index-strategy unsafe-best-match
+uv pip install .
 ```
 
 ### contributing
