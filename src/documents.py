@@ -1,4 +1,6 @@
-from typing import override
+from abc import abstractmethod
+from io import BufferedReader
+from typing import Dict, Any
 import pymupdf
 from pathlib import Path
 import json
@@ -23,18 +25,16 @@ class IterablePageCollection:
     def __fspath__(self):
         return self.path
 
-    def get_page(self, index):
-        file_path = self._pages[index]
-        with open(file_path) as page:
-            return page
-
+    @abstractmethod
+    def get_page(self, index) -> Any:
+        ...
 
 class Manga(IterablePageCollection):
     def __init__(self, path: Path):
         self._normalize_to_png(path)
         super().__init__(path)
 
-    def _normalize_to_png(self, path):
+    def _normalize_to_png(self, path) -> None:
         for i, file in enumerate(sorted(path.iterdir())):
             if not file.is_file():
                 raise IsADirectoryError("Not a file. This is probably a directory")
@@ -53,7 +53,12 @@ class Manga(IterablePageCollection):
                 case _:
                     raise pymupdf.FileDataError("Invalid data type")
 
-    def save_to_pdf(self, output_path=None):
+    def get_page(self, index) -> BufferedReader:
+        file_path = self._pages[index]
+        with open(file_path, mode="rb") as page:
+            return page
+
+    def save_to_pdf(self, output_path=None) -> None:
         if not output_path:
             output_path = "output/test_pdf.pdf"
 
@@ -75,8 +80,7 @@ class MangaJSONRepresentation(IterablePageCollection):
     def __init__(self, path: Path):
         super().__init__(path)
 
-    @override
-    def get_page(self, index):
+    def get_page(self, index) -> Dict[str, Any]:
         file_path = self._pages[index]
         with open(file_path) as json_page:
             return json.load(json_page)
