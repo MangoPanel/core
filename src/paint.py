@@ -56,7 +56,7 @@ def creat_bubble_representation(image, text_polys, min_area, max_area, min_circu
 
 def transform_image(img):
     image_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    ret, image_thresh = cv2.threshold(image_grey, 200, 255, cv2.THRESH_BINARY)
+    ret, image_thresh = cv2.threshold(image_grey, 200, 255, cv2.THRESH_BINARY) # TODO this could be changed for a better threshold
 
     # Create kernel for further morphology
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
@@ -65,7 +65,7 @@ def transform_image(img):
     return image_eroded
 
 def image_contours(img):
-    contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) # TODO RETR_TREE is overkill, could be changed for a more subtle method
     return contours
 
 def shortest_distance_to_contour(contour, point):
@@ -86,7 +86,7 @@ def circularity(area, perimeter):
     return circularity
 
 
-
+# DEMO
 image = cv2.imread("input/test/002.png")
 if image is None:
     raise FileNotFoundError("Could not find the requested image!")
