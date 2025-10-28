@@ -26,8 +26,8 @@ class IterablePageCollection:
         return self.path
 
     @abstractmethod
-    def get_page(self, index) -> Any:
-        ...
+    def get_page(self, index) -> Any: ...
+
 
 class Manga(IterablePageCollection):
     def __init__(self, path: Path):
@@ -56,7 +56,7 @@ class Manga(IterablePageCollection):
     def get_page(self, index) -> BufferedReader:
         file_path = self._pages[index]
         with open(file_path, mode="rb") as page:
-            return page
+            return page.read()
 
     def save_to_pdf(self, output_path=None) -> None:
         if not output_path:

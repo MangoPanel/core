@@ -1,19 +1,21 @@
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, Any
 
 from langgraph.graph import StateGraph
 from paddleocr import PaddleOCR
 
 from documents import Manga, MangaJSONRepresentation
 
+import paint
+
 
 class GeneralState(TypedDict):
     original_manga: Manga
-    inpainted_manga: Manga | None
+    clean_manga: Manga | None
     translated_manga: Manga | None
 
-    original_json_representation: MangaJSONRepresentation | None
-    translated_json_representation: MangaJSONRepresentation | None
+    ocr_representation: MangaJSONRepresentation | None
+    bubble_representation: list[dict[Any, Any]] | None
 
 
 def ocr(state: GeneralState) -> GeneralState:
@@ -31,37 +33,60 @@ def ocr(state: GeneralState) -> GeneralState:
         res.save_to_json("output")
 
     representation = MangaJSONRepresentation(Path("output"))
-    
-    # Thid is a demo / debug print
-    # for i, page in enumerate(representation):
-    #     print(f"Text from page {i}: {page['rec_texts']}")
 
-    # state["oryginal_manga"].save_to_pdf()
-
-    return {**state, "original_json_representation": representation}
+    return {**state, "ocr_representation": representation}
 
 
-def text_selector(state: GeneralState): ...
+def bubble_selector(state: GeneralState):
+    manga = state["original_manga"]
+    ocr_rep = state["ocr_representation"]
+    bubble_rep = []
+    for img_page, json_page in zip(manga, ocr_rep):
+        text_polygons = json_page["rec_polys"]
+        bubble_page = paint.create_bubble_representation(
+            img_page, text_polygons, 500, 50000, 0.1, 0.2
+        )
+        bubble_rep.append(bubble_page)
+
+    return {**state, "bubble_representation": bubble_rep}
 
 
-def translator(state: GeneralState):
-    """
-    Translator node. Responsible for translating text.
-    """
-    ...
+def bubble_cleaner(state: GeneralState):
+    manga = state["original_manga"]
+    bubble_rep = state["bubble_representation"]
+    for i, (img_page, bubble_page) in enumerate(zip(manga, bubble_rep)):
+        print(f"Cleaning image nr.{i}\n")
+        bubbles = [item["contour"] for item in bubble_page if item["is_bubble"]]
+        paint.clean_contours(
+            img_page,
+            bubbles,
+            f"/home/johnyboro/Documents/code/mango-panel/core/output-clean/{i:03d}.png",
+        )
+
+    clean_manga = Manga(
+        Path("/home/johnyboro/Documents/code/mango-panel/core/output-clean")
+    )
+    clean_manga.save_to_pdf()
+
+    return {**state, "clean_manga": clean_manga}
 
 
 graph = StateGraph(GeneralState)
 graph.add_node("ocr", ocr)
-graph.set_entry_point("ocr")
+graph.add_node("selector", bubble_selector)
+graph.add_node("cleaner", bubble_cleaner)
+graph.set_entry_point("selector")
+graph.add_edge("ocr", "selector")
+graph.add_edge("selector", "cleaner")
+graph.set_finish_point("cleaner")
 
 app = graph.compile()
 app_res = app.invoke(
     {
         "original_manga": Manga(Path("input/test")),
-        "inpainted_manga": None,
+        "clean_manga": None,
         "translated_manga": None,
-        "original_json_representation": None,
-        "translated_json_representation": None,
+        "ocr_representation": MangaJSONRepresentation(Path("output")),
+        "bubble_representation": None,
     }
 )
