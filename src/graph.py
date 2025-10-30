@@ -40,11 +40,14 @@ def ocr(state: GeneralState) -> GeneralState:
 def bubble_selector(state: GeneralState):
     manga = state["original_manga"]
     ocr_rep = state["ocr_representation"]
+    if ocr_rep is None or manga is None:
+        raise ValueError("Expected non-None value, but got None")
     bubble_rep = []
+
     for img_page, json_page in zip(manga, ocr_rep):
         text_polygons = json_page["rec_polys"]
         bubble_page = paint.create_bubble_representation(
-            img_page, text_polygons, 500, 50000, 0.1, 0.2
+            img_page, text_polygons, 500, 500000, 0.05, 0.2
         )
         bubble_rep.append(bubble_page)
 
@@ -54,17 +57,19 @@ def bubble_selector(state: GeneralState):
 def bubble_cleaner(state: GeneralState):
     manga = state["original_manga"]
     bubble_rep = state["bubble_representation"]
+    if bubble_rep is None or manga is None:
+        raise ValueError("Expectred non-None value, but got None")
     for i, (img_page, bubble_page) in enumerate(zip(manga, bubble_rep)):
         print(f"Cleaning image nr.{i}\n")
         bubbles = [item["contour"] for item in bubble_page if item["is_bubble"]]
         paint.clean_contours(
             img_page,
             bubbles,
-            f"/home/johnyboro/Documents/code/mango-panel/core/output-clean/{i:03d}.png",
+            f"output-clean/{i:03d}.png",
         )
 
     clean_manga = Manga(
-        Path("/home/johnyboro/Documents/code/mango-panel/core/output-clean")
+        Path("output-clean")
     )
     clean_manga.save_to_pdf()
 
@@ -75,7 +80,7 @@ graph = StateGraph(GeneralState)
 graph.add_node("ocr", ocr)
 graph.add_node("selector", bubble_selector)
 graph.add_node("cleaner", bubble_cleaner)
-graph.set_entry_point("selector")
+graph.set_entry_point("ocr")
 graph.add_edge("ocr", "selector")
 graph.add_edge("selector", "cleaner")
 graph.set_finish_point("cleaner")
@@ -83,10 +88,10 @@ graph.set_finish_point("cleaner")
 app = graph.compile()
 app_res = app.invoke(
     {
-        "original_manga": Manga(Path("input/test")),
+        "original_manga": Manga(Path("input/opmv30")),
         "clean_manga": None,
         "translated_manga": None,
-        "ocr_representation": MangaJSONRepresentation(Path("output")),
+        "ocr_representation": None,
         "bubble_representation": None,
     }
 )

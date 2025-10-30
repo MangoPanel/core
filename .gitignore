@@ -2,3 +2,4 @@ build/
 src/mango_panel.egg-info/
 output/
 src/__pycache__
+output-clean/

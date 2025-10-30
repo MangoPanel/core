@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-import json
 
 
 def create_bubble_representation(
@@ -110,14 +109,9 @@ def clean_contours(image_bytes, contours, save_path):
     i = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(i, cv2.IMREAD_COLOR)
     cv2.drawContours(image, contours, -1, color=(0, 255, 0), thickness=cv2.FILLED)
-    # _, im_buf_arr = cv2.imencode(".png", image)
-    # byte_im = im_buf_arr.tobytes()
-    # return byte_im
-    print(f"Saving image to {save_path}")
-    res = cv2.imwrite(save_path, image)
-    cv2.imshow("image", image)
+    cv2.imwrite(save_path, image)
+    # cv2.imshow("image", image)
     cv2.waitKey()
-    print(res)
 
 
 # DEMO

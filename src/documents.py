@@ -1,17 +1,21 @@
 from abc import abstractmethod
-from io import BufferedReader
-from typing import Dict, Any
+from io import  BytesIO
+from typing import Dict, Any, Generic, TypeVar
 import pymupdf
 from pathlib import Path
 import json
 
-
-class IterablePageCollection:
+T = TypeVar("T")
+class IterablePageCollection(Generic[T]):
     def __init__(self, path: Path):
         self.path = path
-        self._pages = sorted(path.iterdir())
+        self._create_dir_structure()
+
+    def _create_dir_structure(self) -> None:
+        self.path.mkdir(parents=True, exist_ok=True)
 
     def __iter__(self):
+        self._pages = sorted(self.path.iterdir())
         self._index = 0
         return self
 
@@ -26,13 +30,13 @@ class IterablePageCollection:
         return self.path
 
     @abstractmethod
-    def get_page(self, index) -> Any: ...
+    def get_page(self, index) -> T: ...
 
 
-class Manga(IterablePageCollection):
+class Manga(IterablePageCollection[bytes]):
     def __init__(self, path: Path):
-        self._normalize_to_png(path)
         super().__init__(path)
+        self._normalize_to_png(path)
 
     def _normalize_to_png(self, path) -> None:
         for i, file in enumerate(sorted(path.iterdir())):
@@ -44,28 +48,28 @@ class Manga(IterablePageCollection):
                     try:
                         doc = pymupdf.open(file)
                     except Exception:
-                        raise FileNotFoundError(f"{file} failed to open")
+                        raise FileNotFoundError(f"PDF {file} failed to open")
                     for page in doc:
                         pix = page.get_pixmap()
-                        pix.save(f"input/test/{page.number:03d}.png")
+                        pix.save(self.path / f"{page.number:03d}.png")
                 case ".jpg" | ".jpeg" | ".png":
-                    file.rename(f"input/test/{i:03d}.png")
+                    file.rename(self.path / f"{i:03d}.png")
                 case _:
                     raise pymupdf.FileDataError("Invalid data type")
 
-    def get_page(self, index) -> BufferedReader:
+    def get_page(self, index) -> bytes:
         file_path = self._pages[index]
         with open(file_path, mode="rb") as page:
             return page.read()
 
     def save_to_pdf(self, output_path=None) -> None:
         if not output_path:
-            output_path = "output/test_pdf.pdf"
+            output_path = self.path / "pdf.pdf"
 
         doc = pymupdf.open()
 
-        for page in self._pages:
-            img = pymupdf.open(page)
+        for page in self:
+            img = pymupdf.open("png", page)
             rect = img[0].rect
             pdfbytes = img.convert_to_pdf()
             img.close()
@@ -76,11 +80,11 @@ class Manga(IterablePageCollection):
         doc.save(output_path)
 
 
-class MangaJSONRepresentation(IterablePageCollection):
+class MangaJSONRepresentation(IterablePageCollection[Dict[str, Any]]):
     def __init__(self, path: Path):
         super().__init__(path)
 
     def get_page(self, index) -> Dict[str, Any]:
         file_path = self._pages[index]
-        with open(file_path) as json_page:
+        with open(file_path, "r") as json_page:
             return json.load(json_page)
