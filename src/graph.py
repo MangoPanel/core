@@ -60,7 +60,6 @@ def bubble_cleaner(state: GeneralState):
     if bubble_rep is None or manga is None:
         raise ValueError("Expectred non-None value, but got None")
     for i, (img_page, bubble_page) in enumerate(zip(manga, bubble_rep)):
-        print(f"Cleaning image nr.{i}\n")
         bubbles = [item["contour"] for item in bubble_page if item["is_bubble"]]
         paint.clean_contours(
             img_page,
@@ -75,15 +74,30 @@ def bubble_cleaner(state: GeneralState):
 
     return {**state, "clean_manga": clean_manga}
 
+def text_writer(state: GeneralState):
+    clean_manga = state["clean_manga"]
+    bubble_rep = state["bubble_representation"]
+    ocr_rep = state["ocr_representation"]
+    if bubble_rep is None or clean_manga is None or ocr_rep is None:
+        raise ValueError("Expected to get clean manga, ocr rep and bubble rep. One or more is None")
+    
+    for i, (img_page, bubble_page, ocr_page) in enumerate(zip(clean_manga, bubble_rep, ocr_rep)):
+        bubbles = [item["contour"] for item in bubble_page if item["is_bubble"]]
+        text = ocr_page["rec_texts"]
+        paint.write_into_contours(bubbles, text)
+    
+
 
 graph = StateGraph(GeneralState)
 graph.add_node("ocr", ocr)
 graph.add_node("selector", bubble_selector)
 graph.add_node("cleaner", bubble_cleaner)
+graph.add_node("writer", text_writer)
 graph.set_entry_point("ocr")
 graph.add_edge("ocr", "selector")
 graph.add_edge("selector", "cleaner")
-graph.set_finish_point("cleaner")
+graph.add_edge("cleaner", "writer")
+graph.set_finish_point("writer")
 
 app = graph.compile()
 app_res = app.invoke(

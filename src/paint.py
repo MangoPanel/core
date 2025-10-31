@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from rich.pretty import pprint
 
 
 def create_bubble_representation(
@@ -8,8 +9,7 @@ def create_bubble_representation(
     polygons = list(
         map(lambda box: np.array(box, dtype=np.int32).reshape(-1, 1, 2), text_polys)
     )
-    i = np.frombuffer(image_bytes, np.uint8)
-    image = cv2.imdecode(i, cv2.IMREAD_COLOR)
+    image = decode_bytes_to_cv2_image(image_bytes)
     # For some reason known only to Opencv developers I need to loop manually otherwise intersections break
     [cv2.fillPoly(image, [poly], (255, 255, 255)) for poly in polygons]
     transformed_image = transform_image(image)
@@ -106,12 +106,26 @@ def circularity(area, perimeter):
 
 
 def clean_contours(image_bytes, contours, save_path):
-    i = np.frombuffer(image_bytes, np.uint8)
-    image = cv2.imdecode(i, cv2.IMREAD_COLOR)
+    image = decode_bytes_to_cv2_image(image_bytes)
     cv2.drawContours(image, contours, -1, color=(0, 255, 0), thickness=cv2.FILLED)
     cv2.imwrite(save_path, image)
     # cv2.imshow("image", image)
     cv2.waitKey()
+
+def write_into_contours(contours, text):
+    print("===Contours n text of a page===\n")
+    pprint(contours)
+    pprint(text)
+    print("\n")
+
+def fit_text_into_contour(contour, text):
+    ...
+
+def decode_bytes_to_cv2_image(bytes):
+    i = np.frombuffer(bytes, np.uint8)
+    image = cv2.imdecode(i, cv2.IMREAD_COLOR)
+    return image
+
 
 
 # DEMO
