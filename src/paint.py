@@ -142,14 +142,40 @@ def fit_text_into_contour(contour, text):
     font = ImageFont.truetype("fonts/catgirl-font-trading.regular.ttf", 40)
     # Split text into words
     words = text.split()
-    word_bboxes = [font.getbbox(word) for word in words]
-    word_lenghts = [font.getlength(word) for word in words]
     # determine the most extreme points along the contour
     c = contour
+    
+    
     extLeft = tuple(c[c[:, :, 0].argmin()][0])
     extRight = tuple(c[c[:, :, 0].argmax()][0])
     extTop = tuple(c[c[:, :, 1].argmin()][0])
     extBot = tuple(c[c[:, :, 1].argmax()][0])
+
+    font_size = 40
+    top_y = extTop[1]
+    start_x = extLeft[0]
+    for word in words:
+        font_adjusted = font.font_variant(size=font_size)
+        word_bbox = font_adjusted.getbbox(word)
+        (left, top, right, bottom) = word_bbox
+        word_length = left + right
+        word_height = top + bottom
+
+        bottom_y = top_y + word_height
+        coords_y = c[:, :, 1]
+        mask_y = (coords_y >= top_y) & (coords_y <= bottom_y)
+        poi_y = coords_y[mask_y]
+        local_min_y = poi_y.min()
+
+        end_x = start_x + word_length
+        coords_x = c[:, :, 0]
+        mask_x = (coords_x >= start_x) & (coords_x <= end_x)
+        poi_x = coords_x[mask_x]
+        local_min_x = poi_x.min()
+
+        
+
+
 
 
 def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
@@ -175,7 +201,7 @@ text = page["rec_texts"]
 image_brep = create_bubble_representation(image, text_polys, 500, 1000000, 0.1, 0.2)
 
 bubbles_raw = [item["contour"] for item in image_brep if item["is_bubble"]]
-bubbles = [approx_contour(bub, 0.01) for bub in bubbles_raw]
+bubbles = [approx_contour(bub, 0.001) for bub in bubbles_raw]
 decorative_text = [item["contour"] for item in image_brep if not item["is_bubble"]]
 
 cv2.drawContours(
