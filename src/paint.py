@@ -1,6 +1,8 @@
+from cv2.typing import MatLike
 import numpy as np
 import cv2
 from rich.pretty import pprint
+from PIL import Image, ImageDraw, ImageFont
 
 
 def create_bubble_representation(
@@ -79,8 +81,8 @@ def transform_image(img):
 
 def image_contours(img):
     contours, hierarchy = cv2.findContours(
-        img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )  # TODO RETR_TREE is overkill, could be changed for a more subtle method
+        img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
     return contours
 
 
@@ -105,6 +107,12 @@ def circularity(area, perimeter):
     return circularity
 
 
+def approx_contour(contour, precision):
+    epsilon = precision * cv2.arcLength(contour, True)
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+    return approx
+
+
 def clean_contours(image_bytes, contours, save_path):
     image = decode_bytes_to_cv2_image(image_bytes)
     cv2.drawContours(image, contours, -1, color=(0, 255, 0), thickness=cv2.FILLED)
@@ -112,41 +120,87 @@ def clean_contours(image_bytes, contours, save_path):
     # cv2.imshow("image", image)
     cv2.waitKey()
 
+
 def write_into_contours(contours, text):
     print("===Contours n text of a page===\n")
     pprint(contours)
     pprint(text)
     print("\n")
 
-def fit_text_into_contour(contour, text):
-    ...
 
-def decode_bytes_to_cv2_image(bytes):
+def fit_text_into_contour(contour, text):
+    """
+    # Get font
+    # Get text and guess a plausible first font size
+    # Get height and width of text for the given point
+    # Get coordinates of the topmost contour point
+    # Split the contour into slices from top to botttom of the text height
+    # Try to fit the text into the contour
+    by comparing the lenght of the text to the combined lenght of the slices
+    # Repeat until text fits with max possible font size
+    """
+    font = ImageFont.truetype("fonts/catgirl-font-trading.regular.ttf", 40)
+    # Split text into words
+    words = text.split()
+    word_bboxes = [font.getbbox(word) for word in words]
+    word_lenghts = [font.getlength(word) for word in words]
+    # determine the most extreme points along the contour
+    c = contour
+    extLeft = tuple(c[c[:, :, 0].argmin()][0])
+    extRight = tuple(c[c[:, :, 0].argmax()][0])
+    extTop = tuple(c[c[:, :, 1].argmin()][0])
+    extBot = tuple(c[c[:, :, 1].argmax()][0])
+
+
+def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
     i = np.frombuffer(bytes, np.uint8)
     image = cv2.imdecode(i, cv2.IMREAD_COLOR)
     return image
 
 
-
 # DEMO
-# image = cv2.imread("input/test/002.png")
-# if image is None:
-#     raise FileNotFoundError("Could not find the requested image!")
-# image_copy = image.copy()
-#
-# with open("output/002_res.json") as json_page:
-#     page = json.load(json_page)
-#
-# text_polys = page["rec_polys"]
-# text = page["rec_texts"]
-#
-# image_brep = create_bubble_representation(image, text_polys, 500, 50000, 0.2, 0.2)
-#
-# bubbles = [item["contour"] for item in image_brep if item["is_bubble"]]
-# decorative_text = [item["contour"] for item in image_brep if not item["is_bubble"]]
-#
-# cv2.drawContours(image=image_copy, contours=bubbles, contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
-# cv2.drawContours(image=image_copy, contours=decorative_text, contourIdx=-1, color=(0, 0, 255), thickness=2, lineType=cv2.LINE_AA)
-#
-# cv2.imshow("bubbles", image_copy)
-# cv2.waitKey()
+import json
+
+with open("input/opmv30/000.png", mode="rb") as page:
+    image = page.read()
+
+image_copy = decode_bytes_to_cv2_image(image)
+
+with open("output/000_res.json") as json_page:
+    page = json.load(json_page)
+
+text_polys = page["rec_polys"]
+text = page["rec_texts"]
+
+image_brep = create_bubble_representation(image, text_polys, 500, 1000000, 0.1, 0.2)
+
+bubbles_raw = [item["contour"] for item in image_brep if item["is_bubble"]]
+bubbles = [approx_contour(bub, 0.01) for bub in bubbles_raw]
+decorative_text = [item["contour"] for item in image_brep if not item["is_bubble"]]
+
+cv2.drawContours(
+    image=image_copy,
+    contours=bubbles,
+    contourIdx=-1,
+    color=(0, 255, 0),
+    thickness=2,
+    lineType=cv2.LINE_AA,
+)
+cv2.drawContours(
+    image=image_copy,
+    contours=decorative_text,
+    contourIdx=-1,
+    color=(0, 0, 255),
+    thickness=2,
+    lineType=cv2.LINE_AA,
+)
+
+cv2.imshow("bubbles", image_copy)
+while True:
+    res = cv2.waitKey()
+    print(
+        "You pressed %d (0x%x), LSB: %d (%s)"
+        % (res, res, res % 256, repr(chr(res % 256)) if res % 256 < 128 else "?")
+    )
+    if res == 27:
+        break
