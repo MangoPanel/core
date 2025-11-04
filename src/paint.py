@@ -144,8 +144,9 @@ def fit_text_into_contour(contour, text):
     words = text.split()
     # determine the most extreme points along the contour
     c = contour
-    
-    
+    cc = center_of_poly(c)
+    (c_x, c_y) = cc
+
     extLeft = tuple(c[c[:, :, 0].argmin()][0])
     extRight = tuple(c[c[:, :, 0].argmax()][0])
     extTop = tuple(c[c[:, :, 1].argmin()][0])
@@ -163,19 +164,26 @@ def fit_text_into_contour(contour, text):
 
         bottom_y = top_y + word_height
         coords_y = c[:, :, 1]
-        mask_y = (coords_y >= top_y) & (coords_y <= bottom_y)
-        poi_y = coords_y[mask_y]
-        local_min_y = poi_y.min()
 
         end_x = start_x + word_length
         coords_x = c[:, :, 0]
-        mask_x = (coords_x >= start_x) & (coords_x <= end_x)
-        poi_x = coords_x[mask_x]
-        local_min_x = poi_x.min()
 
-        
+        points_to_the_left = points_in_range(start_x, c_x, coords_x, c)
+        local_by_y_left = points_in_range(top_y, bottom_y, coords_y, points_to_the_left)
 
 
+def points_in_range(min, max, mask_points, points):
+    mask = (mask_points >= min) & (mask_points <= max)
+    local_points = points[mask]
+    return local_points
+
+
+def local_points_min(min, max, mask_points, points):
+    return points_in_range(min, max, mask_points, points).min()
+
+
+def local_points_max(min, max, mask_points, points):
+    return points_in_range(min, max, mask_points, points).max()
 
 
 def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
