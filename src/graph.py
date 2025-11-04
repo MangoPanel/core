@@ -8,7 +8,7 @@ from documents import Manga, MangaJSONRepresentation
 from pathlib import Path
 
 from paddleocr import PaddleOCR
-
+from translation import translator
 
 class GeneralState(TypedDict):
     oryginal_manga: Manga
@@ -46,15 +46,11 @@ def ocr(state: GeneralState) -> GeneralState:
 def text_selector(state: GeneralState): ...
 
 
-def translator(state: GeneralState):
-    """
-    Translator node. Responsible for translating text.
-    """
-    ...
-
-
 graph = StateGraph(GeneralState)
 graph.add_node("ocr", ocr)
+graph.add_node("translator", translator)
+graph.add_edge("ocr", "translator")
+graph.add_edge("translator", END)
 graph.set_entry_point("ocr")
 
 app = graph.compile()

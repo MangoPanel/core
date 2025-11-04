@@ -1,3 +1,4 @@
 build/
 src/mango_panel.egg-info/
 output/
+src/test_translation.py
