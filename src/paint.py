@@ -81,7 +81,7 @@ def transform_image(img):
 
 def image_contours(img):
     contours, hierarchy = cv2.findContours(
-        img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE # TODO this needs to change as approx none is the most inefficient thing
     )
     return contours
 
@@ -121,27 +121,11 @@ def clean_contours(image_bytes, contours, save_path):
     cv2.waitKey()
 
 
-def write_into_contours(contours, text):
-    print("===Contours n text of a page===\n")
-    pprint(contours)
-    pprint(text)
-    print("\n")
-
-
-def fit_text_into_contour(contour, text):
-    """
-    # Get font
-    # Get text and guess a plausible first font size
-    # Get height and width of text for the given point
-    # Get coordinates of the topmost contour point
-    # Split the contour into slices from top to botttom of the text height
-    # Try to fit the text into the contour
-    by comparing the lenght of the text to the combined lenght of the slices
-    # Repeat until text fits with max possible font size
-    """
-    font = ImageFont.truetype("fonts/catgirl-font-trading.regular.ttf", 40)
+def fit_text_into_contour(contour, text, font, max_font_size=40, min_font_size=5, font_step=2, step_y=3, line_spacing=4):
     # Split text into words
     words = text.split()
+    if not words:
+        return []
     # determine the most extreme points along the contour
     c = contour
     cc = center_of_poly(c)
@@ -152,39 +136,74 @@ def fit_text_into_contour(contour, text):
     extTop = tuple(c[c[:, :, 1].argmin()][0])
     extBot = tuple(c[c[:, :, 1].argmax()][0])
 
-    font_size = 40
     top_y = extTop[1]
-    start_x = extLeft[0]
-    for word in words:
+    for font_size in range(max_font_size, min_font_size -1, -font_step):
         font_adjusted = font.font_variant(size=font_size)
-        word_bbox = font_adjusted.getbbox(word)
-        (left, top, right, bottom) = word_bbox
-        word_length = left + right
-        word_height = top + bottom
+        
+        res = []
+        for word in words:
+            if len(res) > 0:
+                print("Not the first word, the logic shall change!!!")
+                prev_res = res[-1]
+                top_y = prev_res["y"]
+                line = prev_res["word"] + f" {word}"
+                (word_length, word_height) = get_word_w_h(line, font_adjusted)
+                aviable_space = prev_res["aviable_space"]
+                if word_length < aviable_space:
+                    res.append({**prev_res, "word": line})
+                    continue
 
-        bottom_y = top_y + word_height
-        coords_y = c[:, :, 1]
+                top_y += (prev_res["height"] + line_spacing)
 
-        end_x = start_x + word_length
-        coords_x = c[:, :, 0]
+            
+            (word_length, word_height) = get_word_w_h(word, font_adjusted)
+            bottom_y = top_y + word_height
+            coords_y = c[:, :, 1]
+        
+            vertical_slice = points_in_range(top_y, bottom_y, coords_y, contour)
+            slice_x = vertical_slice[:, :, 0]
+            slice_left = points_in_range(extLeft[0], c_x, slice_x, vertical_slice)
+            slice_right = points_in_range(c_x, extRight[0], slice_x, vertical_slice)
 
-        points_to_the_left = points_in_range(start_x, c_x, coords_x, c)
-        local_by_y_left = points_in_range(top_y, bottom_y, coords_y, points_to_the_left)
+            if len(vertical_slice) < 2 or len(slice_left) < 1 or len(slice_right) < 1:
+                raise ValueError(f"Something went wrong! Seems the contour points are too sparse. Slice left: {slice_left}, Slice right: {slice_right}")
+            
+            most_inside_left = slice_left[slice_left[:, :, 0].argmax()][0]
+            most_inside_right = slice_right[slice_right[:, :, 0].argmin()][0]
+            
+            space_between = most_inside_right[0] - most_inside_left[0]
+
+            if word_length <= space_between:
+                x_pos = most_inside_left[0]
+                y_pos = top_y
+                # TODO draw? needs to get the picture from outside to draw, would be cool if it were to return some kind of rpresentation and draw in another function 
+                res.append({
+                    "word": word,
+                    "length": word_length,
+                    "height": word_height,
+                    "aviable_space": space_between,
+                    "x": x_pos,
+                    "y": y_pos
+                })
+                continue
+
+            top_y += step_y
+
+                
+
+                
+def get_word_w_h(word, font):
+    word_bbox = font.getbbox(word)
+    (left, top, right, bottom) = word_bbox
+    word_length = right - left
+    word_height = bottom - top
+    return (word_length, word_height)
 
 
 def points_in_range(min, max, mask_points, points):
     mask = (mask_points >= min) & (mask_points <= max)
     local_points = points[mask]
     return local_points
-
-
-def local_points_min(min, max, mask_points, points):
-    return points_in_range(min, max, mask_points, points).min()
-
-
-def local_points_max(min, max, mask_points, points):
-    return points_in_range(min, max, mask_points, points).max()
-
 
 def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
     i = np.frombuffer(bytes, np.uint8)
@@ -209,7 +228,7 @@ text = page["rec_texts"]
 image_brep = create_bubble_representation(image, text_polys, 500, 1000000, 0.1, 0.2)
 
 bubbles_raw = [item["contour"] for item in image_brep if item["is_bubble"]]
-bubbles = [approx_contour(bub, 0.001) for bub in bubbles_raw]
+bubbles = bubbles_raw # [approx_contour(bub, 0.001) for bub in bubbles_raw]
 decorative_text = [item["contour"] for item in image_brep if not item["is_bubble"]]
 
 cv2.drawContours(
