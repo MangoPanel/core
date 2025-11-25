@@ -22,19 +22,22 @@ class IterablePageCollection:
 
     def __fspath__(self):
         return self.path
-
+    
     def get_page(self, index):
         file_path = self._pages[index]
         with open(file_path) as page:
             return page
 
-
 class Manga(IterablePageCollection):
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, work_dir: Path = None):
+        self.work_dir = work_dir or path
         self._normalize_to_png(path)
-        super().__init__(path)
+        super().__init__(self.work_dir)
 
     def _normalize_to_png(self, path):
+        import os
+        os.makedirs(self.work_dir, exist_ok=True)
+        
         for i, file in enumerate(sorted(path.iterdir())):
             if not file.is_file():
                 raise IsADirectoryError("Not a file. This is probably a directory")
@@ -47,9 +50,10 @@ class Manga(IterablePageCollection):
                         raise FileNotFoundError(f"{file} failed to open")
                     for page in doc:
                         pix = page.get_pixmap()
-                        pix.save(f"input/test/{page.number:03d}.png")
+                        pix.save(str(self.work_dir / f"{page.number:03d}.png"))
                 case ".jpg" | ".jpeg" | ".png":
-                    file.rename(f"input/test/{i:03d}.png")
+                    import shutil
+                    shutil.copy2(file, self.work_dir / f"{i:03d}.png")
                 case _:
                     raise pymupdf.FileDataError("Invalid data type")
 
@@ -74,6 +78,8 @@ class Manga(IterablePageCollection):
 class MangaJSONRepresentation(IterablePageCollection):
     def __init__(self, path: Path):
         super().__init__(path)
+        #only json files
+        self._pages = [p for p in self._pages if p.suffix == '.json']
 
     @override
     def get_page(self, index):
