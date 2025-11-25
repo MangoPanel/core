@@ -33,7 +33,9 @@ def translator(state: "GeneralState") -> "GeneralState":
     if not original_json:
         raise ValueError("missing data from OCR - cant translate")
 
-    output_dir = Path("output/translated_jsons")
+    # Use work_dir from state, fallback to default
+    work_dir = state.get("work_dir", Path("output"))
+    output_dir = Path(work_dir) / "translated_jsons"
     os.makedirs(output_dir, exist_ok=True)
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
