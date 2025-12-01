@@ -21,7 +21,7 @@ def create_bubble_representation(
         cnt for cnt in contours if min_area < cv2.contourArea(cnt) < max_area
     ]
 
-    # The name might be slightlyh mnissleading
+    # The name might be slightly missleading
     # This is a contour index -> text polygon index dictionary
     contours_containing_text = {}
 
@@ -91,6 +91,9 @@ def shortest_distance_to_contour(contour, point):
 
 
 def center_of_poly(poly):
+    # Reshaping if needed
+    if poly.ndim == 3:
+        poly = poly.reshape(poly.shape[0], 2)
     M = cv2.moments(poly)
     center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
     return center
@@ -121,88 +124,152 @@ def clean_contours(image_bytes, contours, save_path):
     cv2.waitKey()
 
 
-def fit_text_into_contour(contour, text, font, max_font_size=40, min_font_size=5, font_step=2, step_y=3, line_spacing=4):
+def fit_text_into_contour(image, contour, text, font, max_font_size=40, min_font_size=5, font_step=2, step_y=3, line_spacing=4):
     # Split text into words
-    words = text.split()
+    words = text.split(".")
     if not words:
         return []
+
     # determine the most extreme points along the contour
     c = contour
     cc = center_of_poly(c)
     (c_x, c_y) = cc
+    cv2.circle(image, cc, 10, (255, 0, 255), -1)     # center
+
 
     extLeft = tuple(c[c[:, :, 0].argmin()][0])
     extRight = tuple(c[c[:, :, 0].argmax()][0])
     extTop = tuple(c[c[:, :, 1].argmin()][0])
     extBot = tuple(c[c[:, :, 1].argmax()][0])
 
-    top_y = extTop[1]
+
+    cv2.circle(image, extLeft, 5, (255, 0, 0), -1)     # Blue: leftmost
+    cv2.circle(image, extRight, 5, (0, 255, 0), -1)    # Green: rightmost
+    cv2.circle(image, extTop, 5, (0, 0, 255), -1)      # Red: topmost
+    cv2.circle(image, extBot, 5, (255, 255, 0), -1)    # Cyan: bottommost
+
+    cv2.line(image, extLeft, extRight, (128, 128, 128), 1, cv2.LINE_AA)
+    cv2.line(image, extTop, extBot, (128, 128, 128), 1, cv2.LINE_AA)
+
+    # Iterate over font sizes until it fits
     for font_size in range(max_font_size, min_font_size -1, -font_step):
         font_adjusted = font.font_variant(size=font_size)
-        
         res = []
+        fitted_word_count = 0
+        top_y = extTop[1]
+
         for word in words:
-            if len(res) > 0:
-                print("Not the first word, the logic shall change!!!")
+            (word_length, word_height) = get_word_w_h(word, font_adjusted)
+
+            if len(res) == 0:
+                # print("First word")
+                # Try to fit the first word
+                current_y = top_y
+                while current_y + word_height < extBot[1]:
+                    fit_res = can_fit_word_at_y(word, font_adjusted, contour, current_y, extLeft, extRight, c_x)
+                    if fit_res:
+                        # print("Managed to fit the first word:")
+                        # pprint(fit_res)
+                        res.append(fit_res)
+                        fitted_word_count += 1
+                        break
+
+                    current_y += step_y
+                
+                if len(res) > 0:
+                    continue
+                
+                # Failed to fit the first word, try smaller font
+                break
+            else:
+                # print("Not the first word, the logic shall change!!!")
                 prev_res = res[-1]
                 top_y = prev_res["y"]
                 line = prev_res["word"] + f" {word}"
-                (word_length, word_height) = get_word_w_h(line, font_adjusted)
+                (line_length, line_height) = get_word_w_h(line, font_adjusted)
                 aviable_space = prev_res["aviable_space"]
-                if word_length < aviable_space:
-                    res.append({**prev_res, "word": line})
+                if line_length <= aviable_space:
+                    res[-1] = {**prev_res, "word": line, "height": line_height, "length": line_length}
+                    fitted_word_count += 1
+                    # print("Managed to fit a word into the same line:")
+                    # pprint(res[-1])
                     continue
-
+                
+                # Did not fit into the same line, update y to the next line
                 top_y += (prev_res["height"] + line_spacing)
-
-            
-            (word_length, word_height) = get_word_w_h(word, font_adjusted)
-            bottom_y = top_y + word_height
-            coords_y = c[:, :, 1]
+                
+                fit_res = can_fit_word_at_y(word, font_adjusted, contour, top_y, extLeft, extRight, c_x)
+                if fit_res:
+                    # print("Managed to fit a word into the next line")
+                    # pprint(fit_res)
+                    res.append(fit_res)
+                    fitted_word_count += 1
+                    continue
+                
+                # If a word cant be fitted after or directly below then we need to decrease the font size
+                break
         
-            vertical_slice = points_in_range(top_y, bottom_y, coords_y, contour)
-            slice_x = vertical_slice[:, :, 0]
-            slice_left = points_in_range(extLeft[0], c_x, slice_x, vertical_slice)
-            slice_right = points_in_range(c_x, extRight[0], slice_x, vertical_slice)
-
-            if len(vertical_slice) < 2 or len(slice_left) < 1 or len(slice_right) < 1:
-                raise ValueError(f"Something went wrong! Seems the contour points are too sparse. Slice left: {slice_left}, Slice right: {slice_right}")
+        # print(fitted_word_count, len(words))
+        if fitted_word_count == len(words):
+            return res
+    
+    raise ValueError("Failed fitting the given text into the give contour for the given font and font size range")
             
-            most_inside_left = slice_left[slice_left[:, :, 0].argmax()][0]
-            most_inside_right = slice_right[slice_right[:, :, 0].argmin()][0]
-            
-            space_between = most_inside_right[0] - most_inside_left[0]
 
-            if word_length <= space_between:
-                x_pos = most_inside_left[0]
-                y_pos = top_y
-                # TODO draw? needs to get the picture from outside to draw, would be cool if it were to return some kind of rpresentation and draw in another function 
-                res.append({
-                    "word": word,
-                    "length": word_length,
-                    "height": word_height,
-                    "aviable_space": space_between,
-                    "x": x_pos,
-                    "y": y_pos
-                })
-                continue
+def can_fit_word_at_y(word, font, contour, y, extLeft, extRight, c_x):
+    (word_length, word_height) = get_word_w_h(word, font)
+    bottom_y = y + word_height
 
-            top_y += step_y
+    # Check if word fits within contour bounds
+    coords_y = contour[:, :, 1]
+    vertical_slice = points_in_range(y, bottom_y, coords_y, contour)
+    if len(vertical_slice) < 2:
+        return None
 
-                
+    slice_x = vertical_slice[:, :, 0]
 
-                
+    # Split into left and right halves
+    slice_left = points_in_range(extLeft[0], c_x, slice_x, vertical_slice)
+    slice_right = points_in_range(c_x, extRight[0], slice_x, vertical_slice)
+
+    if len(slice_left) < 1 or len(slice_right) < 1:
+        return None
+
+    # Find most "inside" points
+    most_inside_left = slice_left[slice_left[:, :, 0].argmax()][0]
+    most_inside_right = slice_right[slice_right[:, :, 0].argmin()][0]
+
+    space_between = most_inside_right[0] - most_inside_left[0]
+
+    if word_length > space_between:
+        return None
+
+    return {
+        "word": word,
+        "x": most_inside_left[0],
+        "y": y,
+        "length": word_length,
+        "height": word_height,
+        "aviable_space": space_between,
+        "font": font
+    }
+
+
 def get_word_w_h(word, font):
-    word_bbox = font.getbbox(word)
-    (left, top, right, bottom) = word_bbox
-    word_length = right - left
-    word_height = bottom - top
-    return (word_length, word_height)
+    # word_bbox = font.getbbox(word)
+    # (left, top, right, bottom) = word_bbox
+    # word_length = right - left
+    # word_height = bottom - top
+    # return (word_length, word_height)
+    
+    # More robust measurments using the drawn mask which should yield acutal pixel extents
+    mask = font.getmask(word)
+    return mask.size
 
 
 def points_in_range(min, max, mask_points, points):
     mask = (mask_points >= min) & (mask_points <= max)
-    local_points = points[mask]
+    local_points = points[mask][:, np.newaxis, :]
     return local_points
 
 def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
@@ -210,6 +277,14 @@ def decode_bytes_to_cv2_image(bytes: bytes) -> MatLike:
     image = cv2.imdecode(i, cv2.IMREAD_COLOR)
     return image
 
+from PIL import ImageDraw
+
+def draw_word(image, word_info, draw):
+    x = word_info["x"]
+    y = word_info["y"]
+    text = word_info["word"]
+
+    draw.text((x, y), text, font=word_info.get("font"), fill="black")
 
 # DEMO
 import json
@@ -247,6 +322,62 @@ cv2.drawContours(
     thickness=2,
     lineType=cv2.LINE_AA,
 )
+
+# DRAW TEXT
+# Convert OpenCV image (BGR) to PIL (RGB)
+pil_image = Image.fromarray(cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB))
+draw = ImageDraw.Draw(pil_image)
+
+# Load a font (use a default one or try a TTF)
+try:
+    font = ImageFont.truetype("fonts/Inktype-MAp2J.ttf")
+except IOError:
+    font = ImageFont.load_default()  # Fallback
+
+# Loop over all bubbles that are marked as "is_bubble"
+for item in image_brep:
+    if not item["is_bubble"]:
+        continue  # Skip decorative text
+
+    contour = item["contour"]
+    poly_ids = item["poly_ids"]
+    # print(f"Len of text array: {len(text)}")
+    string = "Test string. String hihihi Mango PANEL Mango Manga. AAAA A. 12134sdlkasfjlsak"
+    # for text_index in poly_ids:
+    #     if text_index > len(text):
+    #         print(f"Text index of: {text_index} is outside of range of the text array of len: {len(text)}")
+    #     else:
+    #         word = text[text_index]
+    #         print(f"Word found: {word}")
+    #         string.join(word)
+
+    # Fit text into the contour
+
+    try:
+        res = fit_text_into_contour(
+            image_copy,
+            contour=contour,
+            text=string,
+            font=font,
+            max_font_size=40,
+            min_font_size=2,
+            font_step=2,
+            step_y=3,
+            line_spacing=4
+        )
+    except Exception as e:
+        print(f"Failed to fit text in bubble: {e}")
+        continue
+
+    # Draw each fitted word
+    for word_info in res:
+        draw_word(pil_image, word_info, draw)
+
+# Convert back to OpenCV format (RGB → BGR)
+final_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+
+# Show the result
+cv2.imshow("Bubbles with Fitted Text", final_image)
 
 cv2.imshow("bubbles", image_copy)
 while True:
