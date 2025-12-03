@@ -4,6 +4,7 @@ import cv2
 from rich.pretty import pprint
 from PIL import Image, ImageDraw, ImageFont
 
+from manga_processor.models import Bubble, BubbleRepresentation
 
 def create_bubble_representation(
     image_bytes, text_polys, min_area, max_area, min_circularity, min_solidity
@@ -42,17 +43,17 @@ def create_bubble_representation(
             contours_containing_text[closest_contour_index].append(p)
 
     # Finally we join it into a representation
-    bubble_representation = [
-        {
-            "contour": cnt,
-            "poly_ids": contours_containing_text[c],
-            "is_bubble": cnt_circularity > min_circularity
+    bubble_representation = BubbleRepresentation([
+        Bubble(
+            contour=cnt,
+            poly_ids=contours_containing_text[c],
+            is_bubble=cnt_circularity > min_circularity
             and cnt_solidity > min_solidity,
-            "circularity": cnt_circularity,
-            "solidity": cnt_solidity,
-            "area": area,
-            "perimeter": perimeter,
-        }
+            circularity=cnt_circularity,
+            solidity=cnt_solidity,
+            area=area,
+            perimeter=perimeter,
+        )
         for c in contours_containing_text
         if c < len(good_size_contours)
         for cnt in (good_size_contours[c],)
@@ -61,7 +62,7 @@ def create_bubble_representation(
         for perimeter in (cv2.arcLength(cnt, True),)
         for cnt_solidity in (solidity(area, hull),)
         for cnt_circularity in (circularity(area, perimeter),)
-    ]
+    ])
 
     return bubble_representation
 
@@ -302,9 +303,9 @@ text = page["rec_texts"]
 
 image_brep = create_bubble_representation(image, text_polys, 500, 1000000, 0.1, 0.2)
 
-bubbles_raw = [item["contour"] for item in image_brep if item["is_bubble"]]
+bubbles_raw = [item.contour for item in image_brep.bubbles if item.is_bubble]
 bubbles = bubbles_raw # [approx_contour(bub, 0.001) for bub in bubbles_raw]
-decorative_text = [item["contour"] for item in image_brep if not item["is_bubble"]]
+decorative_text = [item.contour for item in image_brep.bubbles if not item.is_bubble]
 
 cv2.drawContours(
     image=image_copy,
@@ -335,12 +336,12 @@ except IOError:
     font = ImageFont.load_default()  # Fallback
 
 # Loop over all bubbles that are marked as "is_bubble"
-for item in image_brep:
-    if not item["is_bubble"]:
+for item in image_brep.bubbles:
+    if not item.is_bubble:
         continue  # Skip decorative text
 
-    contour = item["contour"]
-    poly_ids = item["poly_ids"]
+    contour = item.contour
+    poly_ids = item.poly_ids
     # print(f"Len of text array: {len(text)}")
     string = "Test string. String hihihi Mango PANEL Mango Manga. AAAA A. 12134sdlkasfjlsak"
     # for text_index in poly_ids:
