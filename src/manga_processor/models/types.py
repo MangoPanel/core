@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
+from typing import TypeVar, Generic
 
 @dataclass
 class Bubble:
@@ -13,6 +14,33 @@ class Bubble:
     perimeter: float
 
 @dataclass
-class BubbleRepresentation:
-    bubbles: list[Bubble]
+class OCRPage:
+    index: int
+    dt_polys: list[list[tuple]]
+    rec_texts: list[str]
+    rec_scores: list[float]
 
+@dataclass
+class OCRPagePath:
+    index: int
+    path: Path
+
+@dataclass
+class OCRResult:
+    ocr_pages: list[OCRPagePath]
+
+T = TypeVar("T")
+@dataclass
+class MangaPage(Generic[T]):
+    index: int
+    image: T
+
+@dataclass
+class MangaPagePath:
+    index: int
+    path: Path
+
+@dataclass
+class Manga:
+    pages: list[MangaPagePath]
+    title: str | None = None
