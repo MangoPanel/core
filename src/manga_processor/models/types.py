@@ -16,7 +16,7 @@ class Bubble:
 @dataclass
 class OCRPage:
     index: int
-    dt_polys: list[list[tuple]]
+    dt_polys: list[list[list[float]]]
     rec_texts: list[str]
     rec_scores: list[float]
 

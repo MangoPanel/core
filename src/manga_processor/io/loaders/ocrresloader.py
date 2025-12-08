@@ -1,6 +1,14 @@
 from pathlib import Path
-from models import OCRPagePath, OCRResult
+from models import OCRPagePath, OCRPage, OCRResult
+import json
 
+class OCRPageLoader():
+    def load_json(self, ocr_page_path: OCRPagePath) -> OCRPage:
+        with ocr_page_path.path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        page = OCRPage(**data)
+        return page
 
 class OCRResultLoader():
     def load_directory(self, path: Path) -> OCRResult:
