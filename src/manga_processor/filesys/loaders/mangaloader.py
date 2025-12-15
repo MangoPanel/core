@@ -33,7 +33,7 @@ class MangaLoader:
         self.normalizer = normalizer
 
     def load_directory(self, path: Path) -> Manga:
-        normalized_dir = path / "normalized"
+        normalized_dir = path.parent / f"{path.name}_normalized"
         self.normalizer.normalize(path, normalized_dir)
 
         pages: list[MangaPagePath] = []

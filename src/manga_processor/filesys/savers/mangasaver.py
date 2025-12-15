@@ -1,7 +1,7 @@
 import pymupdf
 import shutil
 from pathlib import Path
-from loaders.pageloader import PageLoader
+from ..loaders import PageLoader
 from models import Manga
 
 
