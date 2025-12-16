@@ -22,7 +22,7 @@ class PageLoader:
         return manga_page
 
     def load_for_pymupdf(self, manga_page_path: MangaPagePath) -> MangaPage[Document]:
-        image = pymupdf.open("png", f"{manga_page_path.path}")
+        image = pymupdf.open(manga_page_path.path)
         if image is None:
             raise ValueError(
                 f"Failed to load image for pymupdf: {manga_page_path.path}"

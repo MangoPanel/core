@@ -21,7 +21,9 @@ class MangaSaver:
             imgPDF = pymupdf.open("pdf", pdfbytes)
             page = doc.new_page(width=rect.width, height=rect.height)
             page.show_pdf_page(rect, imgPDF, 0)
+        
 
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(output_path)
 
     def save_to_png_dir(self, manga: Manga, output_path: Path) -> None:

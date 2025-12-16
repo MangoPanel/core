@@ -5,10 +5,9 @@ import os
 from unittest import TestCase
 from pathlib import Path
 
-from filesys import MangaLoader, MangaNormalizer, PageLoader, OCRPageLoader, OCRResultLoader
+from filesys import MangaLoader, MangaNormalizer
 from models import MangaPagePath
 from models import Manga
-
 
 class TestMangaLoader(TestCase):
     def setUp(self):
