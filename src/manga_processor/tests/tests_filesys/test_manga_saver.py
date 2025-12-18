@@ -12,7 +12,7 @@ from models import MangaPagePath
 from models import Manga
 
 SCRIPT_DIR = Path(__file__).parent
-TEST_DATA_DIR = SCRIPT_DIR / "../test_data/"
+TEST_DATA_DIR = SCRIPT_DIR / "../test_data/png/"
 
 class TestMangaLoader(TestCase):
     def setUp(self):

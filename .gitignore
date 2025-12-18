@@ -1,5 +1,11 @@
 build/
-src/mango_panel.egg-info/
+*.egg-info/
 output/
-src/__pycache__
+**/__pycache__/
 output-clean/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env/
