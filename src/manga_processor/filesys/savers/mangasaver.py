@@ -1,8 +1,8 @@
 import pymupdf
 import shutil
 from pathlib import Path
-from ..loaders import PageLoader
-from models import Manga
+from manga_processor.filesys import PageLoader
+from manga_processor.models import Manga
 
 
 class MangaSaver:

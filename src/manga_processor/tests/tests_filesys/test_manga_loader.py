@@ -5,9 +5,9 @@ import os
 from unittest import TestCase
 from pathlib import Path
 
-from filesys import MangaLoader, MangaNormalizer
-from models import MangaPagePath
-from models import Manga
+from manga_processor.filesys import MangaLoader, MangaNormalizer
+from manga_processor.models import MangaPagePath
+from manga_processor.models import Manga
 
 class TestMangaLoader(TestCase):
     def setUp(self):

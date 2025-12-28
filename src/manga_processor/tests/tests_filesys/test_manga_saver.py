@@ -6,9 +6,9 @@ from pathlib import Path
 import pymupdf
 import random
 
-from filesys import MangaSaver
-from models import MangaPagePath
-from models import Manga
+from manga_processor.filesys import MangaSaver
+from manga_processor.models import MangaPagePath
+from manga_processor.models import Manga
 
 SCRIPT_DIR = Path(__file__).parent
 TEST_DATA_DIR = SCRIPT_DIR / "../test_data/png/"

@@ -3,9 +3,9 @@ from unittest import TestCase
 
 import cv2
 from cv2.typing import MatLike
-from filesys import PageLoader
+from manga_processor.filesys import PageLoader
 from pathlib import Path
-from models import MangaPage, MangaPagePath
+from manga_processor.models import MangaPage, MangaPagePath
 from PIL.Image import Image as PILImage
 from PIL import Image
 

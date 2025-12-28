@@ -4,6 +4,8 @@ import numpy as np
 from typing import TypeVar, Generic
 from PIL.ImageFont import ImageFont as PILImageFont
 
+from manga_processor.debug.debug_tools import add_debug_field
+
 
 @dataclass
 class Bubble:
@@ -55,8 +57,8 @@ class OCRResult:
 
 T = TypeVar("T")
 
-
 @dataclass
+@add_debug_field()
 class MangaPage(Generic[T]):
     index: int
     image: T

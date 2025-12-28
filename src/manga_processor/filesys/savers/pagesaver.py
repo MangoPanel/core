@@ -1,6 +1,6 @@
 from pathlib import Path
 from cv2.typing import MatLike
-from models import MangaPage
+from manga_processor.models import MangaPage
 import cv2
 from PIL.Image import Image as PILImage
 

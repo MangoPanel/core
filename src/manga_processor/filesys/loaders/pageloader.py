@@ -1,6 +1,6 @@
 import pymupdf
 from pymupdf import Document
-from models import MangaPagePath, MangaPage
+from manga_processor.models import MangaPagePath, MangaPage
 import cv2
 from cv2.typing import MatLike
 from PIL import Image

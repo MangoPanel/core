@@ -1,6 +1,6 @@
 from PIL import ImageDraw
 
-from models import MangaPage, TextShape
+from manga_processor.models import MangaPage, TextShape
 
 
 class Writer:

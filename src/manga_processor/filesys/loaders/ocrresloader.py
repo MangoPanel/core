@@ -1,5 +1,5 @@
 from pathlib import Path
-from models import OCRPagePath, OCRPage, OCRResult
+from manga_processor.models import OCRPagePath, OCRPage, OCRResult
 import json
 
 class OCRPageLoader():

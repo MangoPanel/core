@@ -5,8 +5,8 @@ import shutil
 from unittest import TestCase
 from pathlib import Path
 
-from filesys import OCRPageSaver
-from models import OCRPagePath
+from manga_processor.filesys import OCRPageSaver
+from manga_processor.models import OCRPagePath
 
 
 SCRIPT_DIR = Path(__file__).parent

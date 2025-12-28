@@ -1,4 +1,4 @@
-from models import OCRPage
+from manga_processor.models import OCRPage
 import json
 from pathlib import Path
 from dataclasses import asdict, fields

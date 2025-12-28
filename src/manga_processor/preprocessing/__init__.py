@@ -1,3 +1,3 @@
-from imagepreprocessor import PagePreprocessor, Filter, BinaryFilter, ErodeFilter, GrayScaleFilter
+from manga_processor.preprocessing.imagepreprocessor import PagePreprocessor, ImageTransformation, Binarize, Erode, ToGray, ToColor, DistanceTransfrom, ToEmptyMask
 
-__all__ = ["PagePreprocessor", "Filter", "BinaryFilter", "ErodeFilter", "GrayScaleFilter"]
+__all__ = ["PagePreprocessor", "ImageTransformation", "Binarize", "Erode", "ToGray", "ToColor", "DistanceTransfrom", "ToEmptyMask"]

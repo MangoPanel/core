@@ -4,8 +4,8 @@ import json
 from unittest import TestCase
 from pathlib import Path
 
-from filesys import OCRPageLoader
-from models import OCRPagePath
+from manga_processor.filesys import OCRPageLoader
+from manga_processor.models import OCRPagePath
 
 
 SCRIPT_DIR = Path(__file__).parent

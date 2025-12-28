@@ -1,6 +1,6 @@
 import pymupdf
 from pathlib import Path
-from models import Manga, MangaPagePath
+from manga_processor.models import Manga, MangaPagePath
 
 class MangaNormalizer:
     def normalize(self, input_dir: Path, output_dir: Path) -> None:

@@ -1,44 +1,21 @@
 import numpy as np
-from numpy._typing import NDArray
-from sklearn.cluster import AgglomerativeClustering
+import cv2
 
+from manga_processor.models.types import OCRPage
 
-from models import OCRPage
+def scale_polys(polys, scale):
+    M = cv2.moments(polys)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
 
-class AutoPolyClustering:
-    def __init__(self, expansion_factor: float = 1.2):
-        self.expansion_factor = expansion_factor
+    poly_norm = polys - [cx, cy]
+    polys_scaled = poly_norm * scale
+    polys_scaled = polys_scaled + [cx, cy]
+    polys_scaled = polys_scaled.astype(np.int32)
 
-    def get_poly_centers(self, polys: NDArray):
-        return [np.mean(poly, axis=0) for poly in polys]
+    return polys_scaled
 
-    def get_poly_heights(self, polys: NDArray):
-        heights = []
-        for poly in polys:
-            y_coords = poly[:, 1]
-            height = np.max(y_coords) - np.min(y_coords)
-            heights.append(height)
-        return heights
+def scale_polys_on_page(ocr_page: OCRPage, scale) -> OCRPage:
+    new_polys = [scale_polys(poly, scale) for poly in ocr_page.dt_polys]
+    return OCRPage(ocr_page.index, new_polys, ocr_page.rec_texts, ocr_page.rec_scores)
 
-    def fit(self, ocr_page: OCRPage):
-        if len(ocr_page.dt_polys) < 2:
-            return ocr_page
-        
-        np_polys = np.array(ocr_page.dt_polys)
-        
-        poly_centers = self.get_poly_centers(np_polys)
-        poly_heights = self.get_poly_heights(np_polys)
-
-        global_threshold = np.mean(poly_heights) * self.expansion_factor
-
-        clustering = AgglomerativeClustering(n_clusters=None, distance_threshold=global_threshold, linkage="single").fit(poly_centers)
-
-        labels = clustering.labels_
-        num_groups = clustering.n_clusters
-
-        new_polys, new_texts, new_scores = [], [], []
-
-        for i in range(num_groups):
-            indices = np.where(labels == i)[0]
-            indices = indices[np.argsort(poly_centers[indices, 1])]
-            # TODO FINISH
