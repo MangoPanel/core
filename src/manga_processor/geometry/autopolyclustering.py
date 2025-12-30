@@ -9,7 +9,7 @@ class AutoPolyClustering:
         self.expansion_factor = expansion_factor
         self.separator = separator
 
-    def fit(self, ocr_page: OCRPage) -> OCRPage:
+    def fit_predict(self, ocr_page: OCRPage) -> OCRPage:
         if len(ocr_page.dt_polys) < 2:
             return ocr_page
 

@@ -1,66 +1,69 @@
 from pathlib import Path
-import cv2
-import numpy as np
-from cv2.typing import MatLike
-from typing import List
-from manga_processor.bubbles.watershed import Watershed, WatershedTreshold
+from manga_processor.bubbles.watershed import WatershedTreshold
 from manga_processor.debug.debug_visual import VisualDebuger
-from manga_processor.drawing.drawer import Drawer
+from manga_processor.drawing.drawer import (
+    draw_contours,
+    draw_polys,
+    populate_with_polys,
+)
 from manga_processor.filesys.loaders.ocrresloader import OCRPageLoader
 from manga_processor.filesys.loaders.pageloader import PageLoader
-from manga_processor.filesys.savers.ocrresaver import OCRPageSaver
 from manga_processor.geometry.autopolyclustering import AutoPolyClustering
-from manga_processor.geometry.polyoperations import scale_polys, scale_polys_on_page
-from manga_processor.models import OCRPage, MangaPage, Bubble
-from manga_processor.models.types import MangaPagePath, OCRPagePath
+from manga_processor.geometry.contouroperations import find_unique_contours
+from manga_processor.geometry.polyoperations import scale_polys_on_page
+from manga_processor.models import Bubble, MangaPage, OCRPage
+from manga_processor.models.types import BubblePage, MangaPagePath, OCRPagePath
 from manga_processor.preprocessing.imagepreprocessor import (
-    Dilate,
+    Binarize,
+    Close,
     DistanceTransfrom,
     Erode,
     Invert,
-    Open,
-    Close,
     PagePreprocessor,
-    Binarize,
-    ToColor,
     ToEmptyMask,
     ToGray,
 )
 
-drawer = Drawer()
-landscape_preprocessor = PagePreprocessor(
-    [
-        ToGray(),
-        Binarize(),
-        Close(ksize=(3, 3)),
-        Erode(ksize=(5, 5)),
-        DistanceTransfrom(),
-        Invert()
-    ]
-)
-mask_procesor = PagePreprocessor([ToEmptyMask()])
-auto_poly_clustering = AutoPolyClustering()
-watershed = WatershedTreshold(threshold=220)
 
 class BubbleDetector:
-    def detect(self, ocr_page: OCRPage, manga_page: MangaPage):
-        VisualDebuger.debug_show(drawer.draw_polys(ocr_page, manga_page, (255, 0, 0)))
-        clean_page = drawer.draw_polys(ocr_page, manga_page, (255, 255, 255))
-        landscape_page = landscape_preprocessor.process(clean_page)
-        
-        grouped_ocr_page = auto_poly_clustering.fit(ocr_page)
+    def __init__(
+        self,
+        landscape_preprocessor: PagePreprocessor,
+        mask_preprocessor: PagePreprocessor,
+        polygon_grouping: AutoPolyClustering,
+        watershed: WatershedTreshold,
+    ):
+        self.landscape_preprocessor = landscape_preprocessor
+        self.mask_preprocessor = mask_preprocessor
+        self.polygon_grouping = polygon_grouping
+        self.watershed = watershed
+
+        self.watershed_page = None
+        self.bubble_page = None
+
+    def fit(self, ocr_page: OCRPage, manga_page: MangaPage):
+        clean_page = draw_polys(ocr_page, manga_page, (255, 255, 255))
+        landscape_page = self.landscape_preprocessor.process(clean_page)
+
+        grouped_ocr_page = self.polygon_grouping.fit_predict(ocr_page)
         resized_ocr_page = scale_polys_on_page(grouped_ocr_page, 0.8)
-        markers_mask_page = mask_procesor.process(clean_page)
 
-        markers_page = drawer.populate_with_polys(resized_ocr_page, markers_mask_page)
-        watershed_page = watershed.fit(landscape_page, markers_page)
+        markers_mask_page = self.mask_preprocessor.process(clean_page)
+        markers_page = populate_with_polys(resized_ocr_page, markers_mask_page)
 
-        VisualDebuger.debug_show(clean_page)
-        VisualDebuger.debug_show(landscape_page)
-        VisualDebuger.debug_show(markers_page)
-        VisualDebuger.debug_show(watershed_page)
+        self.watershed_page = self.watershed.fit_predict(landscape_page, markers_page)
 
+        self.bubble_page = BubblePage(manga_page.index, [])
+        contours = find_unique_contours(self.watershed_page)
 
+        for contour, text in zip(contours, grouped_ocr_page.rec_texts):
+            self.bubble_page.bubbles.append(Bubble(contour, text))
+
+        return self
+
+    def fit_predict(self, ocr_page: OCRPage, manga_page: MangaPage):
+        self.fit(ocr_page, manga_page)
+        return self.bubble_page
 
 
 # DEMO
@@ -86,7 +89,33 @@ ocr_page_path = OCRPagePath(index=0, path=file_path)
 
 ocr_page = ocr_pageloader.load_json(ocr_page_path=ocr_page_path)
 
-bubble_detector = BubbleDetector()
-bubble_detector.detect(ocr_page, manga_page)
 
+landscape_preprocessor = PagePreprocessor(
+    [
+        ToGray(),
+        Binarize(),
+        Close(ksize=(3, 3)),
+        Erode(ksize=(5, 5)),
+        DistanceTransfrom(),
+        Invert(),
+    ]
+)
+mask_procesor = PagePreprocessor([ToEmptyMask()])
+auto_poly_clustering = AutoPolyClustering()
+watershed = WatershedTreshold(threshold=220)
+
+
+bubble_detector = BubbleDetector(
+    landscape_preprocessor, mask_procesor, auto_poly_clustering, watershed
+)
+res = bubble_detector.fit(ocr_page, manga_page)
+bubble_page = res.bubble_page
+
+clean_page = draw_polys(ocr_page, manga_page, color=(255, 255, 255))
+drawn_contours = draw_contours(bubble_page, clean_page)
+VisualDebuger.debug_show(res.watershed_page)
+VisualDebuger.debug_show(drawn_contours)
+
+
+VisualDebuger.debug_show(MangaPage(0, base_img))
 VisualDebuger.wait()

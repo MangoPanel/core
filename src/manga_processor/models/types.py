@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, List
 from PIL.ImageFont import ImageFont as PILImageFont
 
 from manga_processor.debug.debug_tools import add_debug_field
@@ -10,13 +10,14 @@ from manga_processor.debug.debug_tools import add_debug_field
 @dataclass
 class Bubble:
     contour: np.ndarray
-    poly_ids: list[int]
-    is_bubble: bool
-    circularity: float
-    solidity: float
-    area: float
-    perimeter: float
+    text: str
+    should_draw: bool = True
 
+
+@dataclass
+class BubblePage:
+    index: int
+    bubbles: List[Bubble]
 
 @dataclass
 class Coords:
@@ -32,7 +33,7 @@ class TextLine:
 
 @dataclass
 class TextShape:
-    lines: list[TextLine]
+    lines: List[TextLine]
     font: PILImageFont
 
 
@@ -52,7 +53,7 @@ class OCRPagePath:
 
 @dataclass
 class OCRResult:
-    ocr_pages: list[OCRPagePath]
+    ocr_pages: List[OCRPagePath]
 
 
 T = TypeVar("T")

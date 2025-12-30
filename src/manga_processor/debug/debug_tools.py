@@ -5,7 +5,10 @@ import numpy as np
 import cv2
 from cv2.typing import MatLike
 
-def add_debug_field(name: str = "transformation_info", type_hint: Type = str, default: Any = ""):
+
+def add_debug_field(
+    name: str = "transformation_info", type_hint: Type = str, default: Any = ""
+):
     def decorator(cls: Type):
         if __debug__:
             if not hasattr(cls, "__annotations__"):
@@ -13,6 +16,7 @@ def add_debug_field(name: str = "transformation_info", type_hint: Type = str, de
             cls.__annotations__[name] = type_hint
             setattr(cls, name, default)
         return cls
+
     return decorator
 
 
@@ -40,7 +44,7 @@ def return_debug(info_provider: Callable[[Any], str] = None):
                     result = replace(result, transformation_info=current + f"{info} ")
 
             return result
+
         return wrapper
+
     return actual_decorator
-
-
