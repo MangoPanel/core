@@ -1,3 +1,5 @@
+from PIL import ImageFont
+from manga_processor.bubbles.bubbletextoperation import prepare_text_shapes
 from pathlib import Path
 from manga_processor.bubbles.watershed import WatershedTreshold
 from manga_processor.debug.debug_visual import VisualDebuger
@@ -116,6 +118,8 @@ drawn_contours = draw_contours(bubble_page, clean_page)
 VisualDebuger.debug_show(res.watershed_page)
 VisualDebuger.debug_show(drawn_contours)
 
+font = ImageFont.load_default()
+text_shapes = prepare_text_shapes(bubble_page, font)
 
-VisualDebuger.debug_show(MangaPage(0, base_img))
+
 VisualDebuger.wait()

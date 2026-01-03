@@ -1,20 +1,18 @@
+from PIL.Image import Image
 from PIL import ImageDraw
 
-from manga_processor.models import MangaPage, TextShape
+from manga_processor.models.types import MangaPage, BubbleTextShape
 
 
-class Writer:
-    def __init__(self, manga_page: MangaPage):
-        self.manga_page = manga_page
-
-    def write_text_shape(self, text_shape: TextShape, fill):
-        draw = ImageDraw.Draw(self.manga_page.image)
-        fnt = text_shape.font
-
-        for line in text_shape.lines:
+def write_text_shapes(page: MangaPage[Image], shapes: list[BubbleTextShape]):
+    result = page.image.copy()
+    for shape in shapes:
+        draw = ImageDraw.Draw(result)
+        for line in shape.textlines:
             draw.text(
-                (line.coords.x, line.coords.y),
+                (line.start_point[0], line.start_point[1]),
                 line.text,
-                font=fnt,
-                fill=fill,
+                (0, 0, 0),
+                shape.font,
             )
+    return MangaPage[Image](page.index, result)

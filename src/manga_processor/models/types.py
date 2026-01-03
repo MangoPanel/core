@@ -1,8 +1,9 @@
+from cv2.typing import Point
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 from typing import TypeVar, Generic, List
-from PIL.ImageFont import ImageFont as PILImageFont
+from PIL.ImageFont import FreeTypeFont
 
 from manga_processor.debug.debug_tools import add_debug_field
 
@@ -19,22 +20,19 @@ class BubblePage:
     index: int
     bubbles: List[Bubble]
 
-@dataclass
-class Coords:
-    x: float
-    y: float
-
 
 @dataclass
 class TextLine:
-    coords: Coords
-    text: str
+    start_point: Point
+    total_width: int
+    used_width: int = 0
+    text: str = ""
 
 
 @dataclass
-class TextShape:
-    lines: List[TextLine]
-    font: PILImageFont
+class BubbleTextShape:
+    textlines: list[TextLine]
+    font: FreeTypeFont
 
 
 @dataclass
@@ -57,6 +55,7 @@ class OCRResult:
 
 
 T = TypeVar("T")
+
 
 @dataclass
 @add_debug_field()
