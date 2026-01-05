@@ -28,6 +28,9 @@ def translate_text(text: list[str], llm: ChatOpenAI) -> list[str]:
     return [line.strip() for line in translated_lines if line.strip()]
 
 
+
+
+
 def translator(state: "GeneralState") -> "GeneralState":
     og_bubbles = state["original_bubbles"]
 
