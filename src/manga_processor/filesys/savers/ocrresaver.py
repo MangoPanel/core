@@ -8,8 +8,9 @@ class OCRPageSaver:
     def save_from_dirty_dict(
         self, data_dict: dict, index: int, output_dir_path: Path
     ) -> None:
+        inner_data = data_dict.get("res", {})
         wanted_fields = {f.name for f in fields(OCRPage)}
-        clean_data = {k: v for k, v in data_dict.items() if k in wanted_fields}
+        clean_data = {k: v for k, v in inner_data.items() if k in wanted_fields}
         ocrpage = OCRPage(index=index, **clean_data)
         self.save_to_json(ocr_page=ocrpage, output_dir_path=output_dir_path)
 

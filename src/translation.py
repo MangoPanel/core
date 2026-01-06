@@ -1,45 +1,47 @@
 from dotenv import load_dotenv
-
-load_dotenv()
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from graph import GeneralState
-
+from pydantic import BaseModel, Field
+from manga_processor.models.types import BubblePage
+from typing import cast
 from langchain_openai import ChatOpenAI
-from pathlib import Path
-import json
 
 
-def translate_text(text: list[str], llm: ChatOpenAI) -> list[str]:
-    if not text:
-        return []
-    joined_text = "\n".join(text)
-    prompt = (
-        "You are a translation system. Translate each Japanese line into natural English. "
-        "Return ONLY the translated lines, in the same order, one per line. "
-        "Do NOT add commentary, explanations, or formatting. "
-        "Input:\n"
-        f"{joined_text}\n\nOutput:"
+class BubbleOutput(BaseModel):
+    index_in_page: int = Field(description="The original index of the bubble")
+    translated_text: str = Field(description="The translated text for this bubble")
+
+
+class PageOutput(BaseModel):
+    page_index: int = Field(description="The original index of the page")
+    bubbles: list[BubbleOutput]
+
+
+class TranlationResponse(BaseModel):
+    pages: list[PageOutput]
+
+
+def translate_bubbles(
+    pages: list[BubblePage], source_lang: str, target_lang: str, llm: ChatOpenAI
+) -> list[BubblePage]:
+    structured_llm = llm.with_structured_output(TranlationResponse)
+
+    input_data = []
+    for page in pages:
+        page_content = {
+            "page_index": page.index,
+            "bubbles": [{"id": i, "text": b.text} for i, b in enumerate(page.bubbles)],
+        }
+        input_data.append(page_content)
+
+    prompt: str = (
+        f"Translate the following document bubbles from {source_lang} to {target_lang}./n"
+        + f"Maintain the context of the story across pages.\n\nData: {input_data}"
     )
-    response = llm.invoke(prompt)
-    translated_lines = response.content.split("\n")
-    return [line.strip() for line in translated_lines if line.strip()]
 
+    response = cast(TranlationResponse, structured_llm.invoke(prompt))
 
+    for page_update in response.pages:
+        og_page: BubblePage = pages[page_update.page_index]
+        for b_update in page_update.bubbles:
+            og_page.bubbles[b_update.index_in_page].text = b_update.translated_text
 
-
-
-def translator(state: "GeneralState") -> "GeneralState":
-    og_bubbles = state["original_bubbles"]
-
-    if not og_bubbles:
-        raise ValueError("missing data - cant translate")
-
-    llm = ChatOpenAI(model="Qwen3", temperature=0.3, base_url="http://10.10.10.20:8000")
-
-    for bubble_page in og_bubbles:
-
-    return {**state, "translated_json_representation": translated_repr}
-
+    return pages

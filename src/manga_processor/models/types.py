@@ -6,8 +6,6 @@ import numpy as np
 from typing import Any, TypeVar, Generic
 from PIL.ImageFont import FreeTypeFont
 
-from manga_processor.debug.debug_tools import add_debug_field
-
 
 @dataclass
 class Bubble:
@@ -62,6 +60,7 @@ T = TypeVar("T")
 class MangaPage(Generic[T]):
     index: int
     image: T
+    transformation_info: str = ""
 
 
 @dataclass
@@ -73,4 +72,5 @@ class MangaPagePath:
 @dataclass
 class Manga:
     pages: list[MangaPagePath]
+    dir_path: Path
     title: str | None = None

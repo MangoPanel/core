@@ -2,6 +2,7 @@ import pymupdf
 from pathlib import Path
 from manga_processor.models import Manga, MangaPagePath
 
+
 class MangaNormalizer:
     def normalize(self, input_dir: Path, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -13,9 +14,9 @@ class MangaNormalizer:
             ext = file.suffix.lower()
 
             match ext:
-                case '.pdf':
+                case ".pdf":
                     self._process_pdf(file, output_dir)
-                case '.png' | '.jpg' | '.jpeg':
+                case ".png" | ".jpg" | ".jpeg":
                     new = output_dir / f"{i}.png"
                     file.rename(new)
                 case _:
@@ -40,7 +41,6 @@ class MangaLoader:
         for i, file in enumerate(sorted(normalized_dir.iterdir())):
             if file.suffix.lower() == ".png":
                 pages.append(MangaPagePath(index=i, path=file))
-        
-        manga = Manga(pages=pages)
-        return manga
 
+        manga = Manga(pages=pages, dir_path=normalized_dir)
+        return manga

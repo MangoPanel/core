@@ -1,6 +1,7 @@
 from cv2.typing import MatLike
 from manga_processor.bubbles.bubbledetector import BubbleDetector
 from manga_processor.bubbles.watershed import WatershedTreshold
+from manga_processor.debug.debug_visual import VisualDebuger
 from manga_processor.filesys import OCRPageLoader, PageLoader
 from manga_processor.geometry.autopolyclustering import AutoPolyClustering
 from manga_processor.models import Manga, MangaPage, OCRPage, OCRResult
@@ -45,12 +46,22 @@ class MangaBubbleDetector:
 
         bubble_pages: list[BubblePage] = []
         for page_path, ocr_page_path in zip(manga.pages, ocr_res.ocr_pages):
+
+            if not page_path.index == ocr_page_path.index:
+                raise ValueError("Indexes of pages and ocr do not match")
+
             loaded_page: MangaPage[MatLike] = self.manga_page_loader.load_for_cv2(
                 page_path
             )
             loaded_ocr_page: OCRPage = self.ocr_page_loader.load_json(ocr_page_path)
+
+            VisualDebuger.debug_show(loaded_page)
+
             bubble_pages.append(
                 bubble_detector.fit_predict(loaded_ocr_page, loaded_page)
             )
 
+            VisualDebuger.debug_show(bubble_detector.watershed_page)
+
+            VisualDebuger.wait()
         return bubble_pages

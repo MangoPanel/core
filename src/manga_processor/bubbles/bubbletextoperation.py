@@ -1,6 +1,5 @@
-from manga_processor.models import TextShape
+from manga_processor.models.types import BubbleTextShape
 from cv2.typing import Point
-from modelscope.pipelines.multi_modal.diffusers_wrapped.devices import dtype
 import cv2
 import numpy as np
 from PIL.ImageFont import FreeTypeFont
@@ -82,7 +81,7 @@ def prepare_text_shapes(
     min_font_size: int = 5,
     max_font_size: int = 50,
 ):
-    text_shapes: list[TextShape] = []
+    text_shapes: list[BubbleTextShape] = []
     for bubble in bubble_page.bubbles:
         text = bubble.text
         contour = bubble.contour
@@ -95,7 +94,7 @@ def prepare_text_shapes(
             slices = split_contour_by_line_height(contour, max_line_height)
             fitted_slices = fit_into_slices(slices, words, word_sizes, space_width)
             if fitted_slices:
-                text_shapes.append(TextShape(fitted_slices, font_adjusted))
+                text_shapes.append(BubbleTextShape(fitted_slices, font_adjusted))
 
         raise Exception(
             f"Failed while fitting words into bubbles on page: {bubble_page.index}. Minimum allowed font size reched"

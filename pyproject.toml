@@ -1,7 +1,6 @@
 [project]
 name = "mango-panel"
 version = "0.1.0"
-# Paddle currently supports up to Python 3.12
 requires-python = ">=3.12"
 dependencies = [
   "flask>=3.1.2",
@@ -15,8 +14,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cpu = ["paddlepaddle==3.0.0b2"]
-gpu = ["paddlepaddle-gpu==3.0.0b2"]
+cpu = ["paddlepaddle==3.2.0"]
+gpu = ["paddlepaddle-gpu==3.2.0"]
 
 [tool.uv]
 # Prevents installing both CPU and GPU versions at the same time
