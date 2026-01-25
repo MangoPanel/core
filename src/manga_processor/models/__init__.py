@@ -6,9 +6,8 @@ from .types import (
     MangaPage,
     MangaPagePath,
     Manga,
-    Coords,
     TextLine,
-    TextShape,
+    BubbleTextShape,
 )
 
 __all__ = [
@@ -19,7 +18,5 @@ __all__ = [
     "MangaPage",
     "MangaPagePath",
     "Manga",
-    "Coords",
     "TextLine",
-    "TextShape",
 ]

@@ -26,8 +26,8 @@ class Invert:
 
 
 class Binarize:
-    def __init__(self, threshold=230):
-        self.threshold = threshold
+    def __init__(self, threshold: int = 230) -> None:
+        self.threshold: int = threshold
 
     def apply(self, image: MatLike) -> MatLike:
         _, res = cv2.threshold(image, self.threshold, 255, cv2.THRESH_BINARY)
@@ -35,12 +35,12 @@ class Binarize:
 
 
 class Erode:
-    def __init__(self, ksize: Size = (3, 3)):
-        self.ksize = ksize
+    def __init__(self, ksize: Size = (3, 3)) -> None:
+        self.ksize: Size = ksize
 
     def apply(self, image: MatLike) -> MatLike:
-        kernel = kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, self.ksize)
-        image_eroded = cv2.morphologyEx(image, cv2.MORPH_ERODE, kernel)
+        kernel: MatLike = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, self.ksize)
+        image_eroded: MatLike = cv2.morphologyEx(image, cv2.MORPH_ERODE, kernel)
         return image_eroded
 
 
@@ -93,7 +93,7 @@ class Dilate:
 
 
 class PagePreprocessor:
-    def __init__(self, transformations: List[ImageTransformation]):
+    def __init__(self, transformations: list[ImageTransformation]):
         self.transformations = transformations or []
         self._compiled_process = self._compile_pipeline()
 
@@ -121,6 +121,4 @@ class PagePreprocessor:
         )
 
     def get_debug_info(self):
-        return " -> ".join(
-            [type(t).__name__ for t in self.transformations]
-        )
+        return " -> ".join([type(t).__name__ for t in self.transformations])

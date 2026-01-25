@@ -1,16 +1,15 @@
-from cv2.typing import Point
+from cv2.typing import MatLike, Point
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
-from typing import TypeVar, Generic, List
+from typing import Any, TypeVar, Generic
 from PIL.ImageFont import FreeTypeFont
-
-from manga_processor.debug.debug_tools import add_debug_field
 
 
 @dataclass
 class Bubble:
-    contour: np.ndarray
+    contour: MatLike
     text: str
     should_draw: bool = True
 
@@ -18,7 +17,7 @@ class Bubble:
 @dataclass
 class BubblePage:
     index: int
-    bubbles: List[Bubble]
+    bubbles: list[Bubble]
 
 
 @dataclass
@@ -42,6 +41,9 @@ class OCRPage:
     rec_texts: list[str]
     rec_scores: list[float]
 
+    def __iter__(self) -> Iterator[tuple[list[list[float]], str, float]]:
+        return zip(self.dt_polys, self.rec_texts, self.rec_scores)
+
 
 @dataclass
 class OCRPagePath:
@@ -51,17 +53,18 @@ class OCRPagePath:
 
 @dataclass
 class OCRResult:
-    ocr_pages: List[OCRPagePath]
+    ocr_pages: list[OCRPagePath]
+    dir_path: Path
 
 
 T = TypeVar("T")
 
 
 @dataclass
-@add_debug_field()
 class MangaPage(Generic[T]):
     index: int
     image: T
+    transformation_info: str = ""
 
 
 @dataclass
@@ -73,4 +76,8 @@ class MangaPagePath:
 @dataclass
 class Manga:
     pages: list[MangaPagePath]
+    dir_path: Path
     title: str | None = None
+
+    def __iter__(self) -> Iterator[MangaPagePath]:
+        return iter(self.pages)

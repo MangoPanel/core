@@ -1,23 +1,28 @@
+from typing import TypeVar
 from dataclasses import replace
 import functools
-from typing import Callable, Type, Any
+from typing import Callable, Any
 import numpy as np
 import cv2
 from cv2.typing import MatLike
 
+# from manga_processor.models.types import MangaPage
 
-def add_debug_field(
-    name: str = "transformation_info", type_hint: Type = str, default: Any = ""
-):
-    def decorator(cls: Type):
-        if __debug__:
-            if not hasattr(cls, "__annotations__"):
-                cls.__annotations__ = {}
-            cls.__annotations__[name] = type_hint
-            setattr(cls, name, default)
-        return cls
+T = TypeVar("T")
 
-    return decorator
+
+# def add_debug_field(
+#     name: str = "transformation_info", type_hint: type = str, default: str = ""
+# ) -> Callable[..., MangaPage[T]]:
+#     def decorator(cls: MangaPage[T]) -> MangaPage[T]:
+#         if __debug__:
+#             if not hasattr(cls, "__annotations__"):
+#                 cls.__annotations__ = {}
+#             cls.__annotations__[name] = type_hint
+#             setattr(cls, name, default)
+#         return cls
+#
+#     return decorator
 
 
 def return_debug(info_provider: Callable[[Any], str] = None):

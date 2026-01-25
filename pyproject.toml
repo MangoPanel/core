@@ -1,27 +1,46 @@
+[project]
+name = "mango-panel"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "flask>=3.1.2",
+  "flask-cors>=6.0.2",
+  "langchain>=0.3.0",
+  "langgraph>=0.2.0",
+  "opencv-python>=4.12.0.88",
+  "paddleocr[all]>=3.0.0",
+  "pillow>=12.1.0",
+  "pymupdf>=1.26.7",
+  "scikit-image>=0.26.0",
+]
+
+[project.optional-dependencies]
+cpu = ["paddlepaddle==3.2.0"]
+gpu = ["paddlepaddle-gpu==3.2.0"]
+
+[tool.uv]
+# Prevents installing both CPU and GPU versions at the same time
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+
+
+[tool.uv.sources]
+paddlepaddle = [{ index = "paddle-cpu", extra = "cpu" }]
+paddlepaddle-gpu = [{ index = "paddle-gpu", extra = "gpu" }]
+
+[[tool.uv.index]]
+name = "paddle-cpu"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cpu/"
+explicit = true
+
+[[tool.uv.index]]
+name = "paddle-gpu"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu118/"
+explicit = true
+
+
 [build-system]
 requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "mango-panel"
-version = "0.1.0"
-description = "MangoPanel translates your manga automagically"
-readme = "README.md"
-authors = [
-    { name = "Jan Borowski", email = "s31890@pjwstk.edu.pl" }
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent"
-]
-dependencies = [
-    "langchain",
-    "langgraph",
-    "paddlepaddle-gpu==3.0.0",
-    "paddleocr[all]",
-    "PyMuPDF",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
-

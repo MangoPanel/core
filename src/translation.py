@@ -1,60 +1,71 @@
 from dotenv import load_dotenv
-load_dotenv()
-
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from graph import GeneralState
-
+from pydantic import BaseModel, Field
+from manga_processor.models.types import BubblePage
+from typing import cast
 from langchain_openai import ChatOpenAI
-from documents import MangaJSONRepresentation
-from pathlib import Path
-import json
-import os
 
 
-def translate_text(text: list[str], llm: ChatOpenAI) -> list[str]:
-    if not text:
-        return []
-    joined_text = "\n".join(text)
-    prompt = (
-    "You are a translation system. Translate each Japanese line into natural English. "
-    "Return ONLY the translated lines, in the same order, one per line. "
-    "Do NOT add commentary, explanations, or formatting. "
-    "Input:\n"
-    f"{joined_text}\n\nOutput:"
-)
-    response = llm.invoke(prompt)
-    translated_lines = response.content.split("\n")
-    return [line.strip() for line in translated_lines if line.strip()]
+class BubbleOutput(BaseModel):
+    index_in_page: int = Field(description="The original index of the bubble")
+    english_translation: str = Field(description="The text converted into English")
 
 
-def translator(state: "GeneralState") -> "GeneralState":
-    original_json = state.get("oryginal_json_representation")
-    if not original_json:
-        raise ValueError("missing data from OCR - cant translate")
+class PageOutput(BaseModel):
+    page_index: int = Field(description="The original index of the page")
+    bubbles: list[BubbleOutput]
 
-    # Use work_dir from state, fallback to default
-    work_dir = state.get("work_dir", Path("output"))
-    output_dir = Path(work_dir) / "translated_jsons"
-    os.makedirs(output_dir, exist_ok=True)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+class TranlationResponse(BaseModel):
+    pages: list[PageOutput]
 
-    for i, page in enumerate(original_json):
-        page_text = page.get("rec_texts", [])
-        translations = translate_text(page_text, llm)
 
-        translated_page = {
-            "page_index": i,
-            "original_text": page_text,
-            "translated_text": translations,
-        }
+def translate_bubbles(
+    pages: list[BubblePage], source_lang: str, target_lang: str, llm: ChatOpenAI
+) -> list[BubblePage]:
+    structured_llm = llm.with_structured_output(TranlationResponse)
 
-        output_path = output_dir / f"page_{i:03d}.json"
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(translated_page, f, ensure_ascii=False, indent=2)
+    story_context = []
 
-        print(f"Translared page {i}: {len(translations)} segments")
+    for page in pages:
+        if not page.bubbles:
+            continue
 
-    translated_repr = MangaJSONRepresentation(output_dir)
-    return {**state, "translated_json_representation": translated_repr}
+        context_string = (
+            " | ".join(story_context[-8:]) if story_context else "Beginning of story."
+        )
+
+        print(f"Translating page {page.index} with story context: {context_string}")
+
+        input_data = [
+            {
+                "page_index": page.index,
+                "bubbles": [
+                    {"id": j, "text": b.text} for j, b in enumerate(page.bubbles)
+                ],
+            }
+        ]
+
+        system_message = (
+            f"You are a Manga Translator. Context: {context_string}\n"
+            "Translate the text naturally. Avoid repeating yourself. \n"
+            "If OCR text looks broken, use context to fix it."
+        )
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": f"JSON to translate:\n{input_data}"},
+        ]
+
+        try:
+            response = cast(TranlationResponse, structured_llm.invoke(messages))
+
+            for page_update in response.pages:
+                for b_update in page_update.bubbles:
+                    trans = b_update.english_translation
+                    page.bubbles[b_update.index_in_page].text = trans
+                    story_context.append(trans)
+
+        except Exception as e:
+            print(f"Error on page {page.index}: {e}")
+
+    return pages

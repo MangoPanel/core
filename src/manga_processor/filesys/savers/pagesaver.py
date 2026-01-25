@@ -6,10 +6,16 @@ from PIL.Image import Image as PILImage
 
 
 class PageSaver:
-    def save_to_img_from_cv2(self, page: MangaPage[MatLike], path: Path) -> None:
-        filepath = path / f"{page.index}.png"
+    def save_to_img_from_cv2(
+        self, page: MangaPage[MatLike], output_dir_path: Path
+    ) -> None:
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        filepath = output_dir_path / f"{page.index}.png"
         cv2.imwrite(filename=f"{filepath}", img=page.image)
 
-    def save_to_img_from_pil(self, page: MangaPage[PILImage], path: Path) -> None:
-        filepath = path / f"{page.index}.png"
+    def save_to_img_from_pil(
+        self, page: MangaPage[PILImage], output_dir_path: Path
+    ) -> None:
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        filepath = output_dir_path / f"{page.index}.png"
         page.image.save(fp=f"{filepath}")
