@@ -1,3 +1,4 @@
+from pathlib import Path
 from cv2.typing import MatLike
 from manga_processor.bubbles.bubbledetector import BubbleDetector
 from manga_processor.bubbles.watershed import WatershedTreshold
@@ -57,7 +58,10 @@ class MangaBubbleDetector:
 
             fitted_detector = bubble_detector.fit(loaded_ocr_page, loaded_page)
             bubble_page = fitted_detector.bubble_page
-            debug_save_dir = f"{manga.dir_path / 'debug'}"
+            current_file_path = Path(__file__).resolve()
+            project_root = current_file_path.parent.parent.parent.parent
+            debug_save_dir = project_root / "debug"
+            debug_save_dir = f"{debug_save_dir}"
             VisualDebugger.debug_save(loaded_page, debug_save_dir)
             VisualDebugger.debug_save(fitted_detector.clean_page, debug_save_dir)
             VisualDebugger.debug_save(fitted_detector.landscape_page, debug_save_dir)

@@ -77,7 +77,6 @@ def process_pdf():
         logger.info(f"Created work directory: {work_dir}")
 
         logger.info("Creating Manga object...")
-        manga = Manga(input_dir, work_dir=work_dir / "manga_pages")
         manga_norm = MangaNormalizer()
         manga_loader = MangaLoader(manga_norm)
         manga = manga_loader.load_directory(input_dir)
