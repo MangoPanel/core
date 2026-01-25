@@ -102,8 +102,8 @@ def translator(state: GeneralState) -> GeneralState:
     bubbles_to_translate = copy.deepcopy(og_bubbles)
 
     llm: ChatOpenAI = ChatOpenAI(
-        model="LFM",
-        base_url="http://10.10.10.20:8000/v1",
+        model="google/gemma-3-12b-it:free",
+        base_url="https://openrouter.ai/api/v1",
         api_key=SecretStr("abc"),
         temperature=0.1,
         top_p=0.1,
