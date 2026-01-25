@@ -68,9 +68,10 @@ def split_contour_by_line_height(contour: MatLike, line_height: int) -> list[Tex
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.drawContours(mask, [contour - [x, y]], -1, 255, -1)
 
-    # REMOVED the 'if top == 0...' skip logic.
-    # We want to use all available space.
     for top in range(0, h, line_height):
+        if top == 0:
+            continue
+
         bottom = min(top + line_height, h)
         roi = mask[top:bottom, :]
         column_exists = np.any(roi > 0, axis=0)
@@ -79,6 +80,7 @@ def split_contour_by_line_height(contour: MatLike, line_height: int) -> list[Tex
             indices = np.where(column_exists)[0]
             slice_width = int(indices[-1] - indices[0] + 1)
             relative_x_offset = int(indices[0])
+
             # Filter out tiny slivers that can't hold even a letter
             if slice_width > 5:
                 slices.append(

@@ -27,6 +27,7 @@ import json
 from pathlib import Path
 
 from paddleocr import PaddleOCR
+from manga_processor.models import MangaPagePath
 from manga_processor.models.types import BubblePage, OCRResult, Manga
 from translation import translate_bubbles
 
@@ -51,7 +52,7 @@ def ocr(state: GeneralState) -> GeneralState:
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         lang="japan",
-        text_rec_score_thresh=0.5,
+        text_rec_score_thresh=0.3,
     )
 
     ocr_page_loader = OCRPageLoader()
@@ -124,37 +125,47 @@ def text_writer(state: GeneralState) -> GeneralState:
     page_loader = PageLoader()
     page_saver = PageSaver()
     ocr_page_loader = OCRPageLoader()
-    manga_norm = MangaNormalizer()
-    manga_loader = MangaLoader(manga_norm)
-
     manga_saver = MangaSaver()
 
-    if translated_bubbles is None:
-        raise ValueError("Translated bubbles are missing cannot write text")
+    if translated_bubbles is None or og_ocr is None:
+        raise ValueError("Required data missing in state")
 
-    font_path = state["work_dir"] / ".." / ".." / "fonts" / "Inktype-MAp2J.ttf"
-    font = ImageFont.truetype(font_path)
+    current_file_path = Path(__file__).resolve()
+    project_root = current_file_path.parent.parent
+    font_path = project_root / "fonts" / "Inktype-MAp2J.ttf"
+    font = ImageFont.truetype(str(font_path), size=30)
+
+    img_output_dir = state["work_dir"] / "translated_pages"
+    img_output_dir.mkdir(parents=True, exist_ok=True)
+
+    new_page_paths = []
+
     for bubble_page, ocr_path in zip(translated_bubbles, og_ocr.ocr_pages):
-        print(f"Page {bubble_page.index}")
-        for bubble in bubble_page.bubbles:
-            print(f"Translated text: {bubble.text}")
-
         ocr_page = ocr_page_loader.load_json(ocr_path)
         page = page_loader.load_for_cv2(manga.pages[bubble_page.index])
+
         page = draw_polys(ocr_page, page, (255, 255, 255))
-        color_coverted = cv2.cvtColor(page.image, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(color_coverted)
+        color_converted = cv2.cvtColor(page.image, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(color_converted)
         page.image = pil_image
+
         text_shapes = prepare_text_shapes(bubble_page, font)
         drawn_page = draw_translated_text(page, text_shapes)
-        output_path = state["work_dir"] / f"{bubble_page.index}.png"
-        page_saver.save_to_img_from_pil(drawn_page, output_path)
 
-    translated_manga = manga_loader.load_directory(state["work_dir"])
-    pdf_path = translated_manga.dir_path / f"{state["manga_name"]}.pdf"
+        page_saver.save_to_img_from_pil(drawn_page, img_output_dir)
+
+        saved_path = img_output_dir / f"{bubble_page.index}.png"
+        new_page_paths.append(MangaPagePath(index=bubble_page.index, path=saved_path))
+
+    new_page_paths.sort(key=lambda x: x.index)
+    translated_manga = Manga(pages=new_page_paths, dir_path=img_output_dir)
+
+    manga_filename = Path(state["manga_name"]).stem
+    pdf_path = state["work_dir"] / f"{manga_filename}.pdf"
+
     manga_saver.save_to_pdf(translated_manga, pdf_path)
 
-    return {**state, "output_pdf_path": f"{pdf_path}"}
+    return {**state, "output_pdf_path": str(pdf_path)}
 
 
 # def pdf_generator(state: GeneralState) -> GeneralState:
