@@ -1,7 +1,7 @@
 from cv2.typing import MatLike
 from manga_processor.bubbles.bubbledetector import BubbleDetector
 from manga_processor.bubbles.watershed import WatershedTreshold
-from manga_processor.debug.debug_visual import VisualDebuger
+from manga_processor.debug.debug_visual import VisualDebugger
 from manga_processor.filesys import OCRPageLoader, PageLoader
 from manga_processor.geometry.autopolyclustering import AutoPolyClustering
 from manga_processor.models import Manga, MangaPage, OCRPage, OCRResult
@@ -55,13 +55,21 @@ class MangaBubbleDetector:
             )
             loaded_ocr_page: OCRPage = self.ocr_page_loader.load_json(ocr_page_path)
 
-            VisualDebuger.debug_show(loaded_page)
-
-            bubble_pages.append(
-                bubble_detector.fit_predict(loaded_ocr_page, loaded_page)
+            fitted_detector = bubble_detector.fit(loaded_ocr_page, loaded_page)
+            bubble_page = fitted_detector.bubble_page
+            debug_save_dir = f"{manga.dir_path / 'debug'}"
+            VisualDebugger.debug_save(loaded_page, debug_save_dir)
+            VisualDebugger.debug_save(fitted_detector.clean_page, debug_save_dir)
+            VisualDebugger.debug_save(fitted_detector.landscape_page, debug_save_dir)
+            VisualDebugger.debug_save(
+                fitted_detector.markers_page, debug_save_dir, force=True
+            )
+            VisualDebugger.debug_save(
+                fitted_detector.watershed_page, debug_save_dir, force=True
             )
 
-            VisualDebuger.debug_show(bubble_detector.watershed_page)
+            if bubble_page is None:
+                raise ValueError("Bubble page is missing")
+            bubble_pages.append(bubble_page)
 
-            VisualDebuger.wait()
         return bubble_pages

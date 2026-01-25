@@ -26,8 +26,7 @@ class OCRResultLoader:
         json_files.sort(key=lambda f: (int(f.stem) if f.stem.isdigit() else f.stem))
 
         for i, file in enumerate(json_files):
-            print(f"file numer {i}: {file.name}")
             ocr_pages.append(OCRPagePath(index=i, path=file))
 
-        ocr_res = OCRResult(ocr_pages=ocr_pages)
+        ocr_res = OCRResult(ocr_pages=ocr_pages, dir_path=path)
         return ocr_res

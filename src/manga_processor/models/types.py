@@ -1,5 +1,5 @@
 from cv2.typing import MatLike, Point
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
@@ -41,6 +41,9 @@ class OCRPage:
     rec_texts: list[str]
     rec_scores: list[float]
 
+    def __iter__(self) -> Iterator[tuple[list[list[float]], str, float]]:
+        return zip(self.dt_polys, self.rec_texts, self.rec_scores)
+
 
 @dataclass
 class OCRPagePath:
@@ -51,6 +54,7 @@ class OCRPagePath:
 @dataclass
 class OCRResult:
     ocr_pages: list[OCRPagePath]
+    dir_path: Path
 
 
 T = TypeVar("T")
@@ -74,3 +78,6 @@ class Manga:
     pages: list[MangaPagePath]
     dir_path: Path
     title: str | None = None
+
+    def __iter__(self) -> Iterator[MangaPagePath]:
+        return iter(self.pages)

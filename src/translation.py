@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 
 class BubbleOutput(BaseModel):
     index_in_page: int = Field(description="The original index of the bubble")
-    translated_text: str = Field(description="The translated text for this bubble")
+    english_translation: str = Field(description="The text converted into English")
 
 
 class PageOutput(BaseModel):
@@ -24,24 +24,48 @@ def translate_bubbles(
 ) -> list[BubblePage]:
     structured_llm = llm.with_structured_output(TranlationResponse)
 
-    input_data = []
+    story_context = []
+
     for page in pages:
-        page_content = {
-            "page_index": page.index,
-            "bubbles": [{"id": i, "text": b.text} for i, b in enumerate(page.bubbles)],
-        }
-        input_data.append(page_content)
+        if not page.bubbles:
+            continue
 
-    prompt: str = (
-        f"Translate the following document bubbles from {source_lang} to {target_lang}./n"
-        + f"Maintain the context of the story across pages.\n\nData: {input_data}"
-    )
+        context_string = (
+            " | ".join(story_context[-8:]) if story_context else "Beginning of story."
+        )
 
-    response = cast(TranlationResponse, structured_llm.invoke(prompt))
+        print(f"Translating page {page.index} with story context: {context_string}")
 
-    for page_update in response.pages:
-        og_page: BubblePage = pages[page_update.page_index]
-        for b_update in page_update.bubbles:
-            og_page.bubbles[b_update.index_in_page].text = b_update.translated_text
+        input_data = [
+            {
+                "page_index": page.index,
+                "bubbles": [
+                    {"id": j, "text": b.text} for j, b in enumerate(page.bubbles)
+                ],
+            }
+        ]
+
+        system_message = (
+            f"You are a Manga Translator. Context: {context_string}\n"
+            "Translate the text naturally. Avoid repeating yourself. \n"
+            "If OCR text looks broken, use context to fix it."
+        )
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": f"JSON to translate:\n{input_data}"},
+        ]
+
+        try:
+            response = cast(TranlationResponse, structured_llm.invoke(messages))
+
+            for page_update in response.pages:
+                for b_update in page_update.bubbles:
+                    trans = b_update.english_translation
+                    page.bubbles[b_update.index_in_page].text = trans
+                    story_context.append(trans)
+
+        except Exception as e:
+            print(f"Error on page {page.index}: {e}")
 
     return pages

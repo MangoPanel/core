@@ -16,7 +16,7 @@ class AutoPolyClustering:
         np_polys = np.array(ocr_page.dt_polys)
 
         shapely_polys = [Polygon(p) for p in ocr_page.dt_polys]
-        
+
         # Ts is for cleaning invalid just in case
         shapely_polys = [p.buffer(0) if not p.is_valid else p for p in shapely_polys]
 
@@ -30,12 +30,12 @@ class AutoPolyClustering:
                 dist = shapely_polys[i].distance(shapely_polys[j])
                 dist_matrix[i, j] = dist
                 dist_matrix[j, i] = dist
-        
+
         clustering = AgglomerativeClustering(
             n_clusters=None,
-            metric='precomputed',
-            linkage='single',
-            distance_threshold=self.expansion_factor
+            metric="precomputed",
+            linkage="single",
+            distance_threshold=self.expansion_factor,
         )
         labels = clustering.fit_predict(dist_matrix)
 

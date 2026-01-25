@@ -1,3 +1,4 @@
+import shutil
 import pymupdf
 from pathlib import Path
 from manga_processor.models import Manga, MangaPagePath
@@ -7,7 +8,10 @@ class MangaNormalizer:
     def normalize(self, input_dir: Path, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        for i, file in enumerate(sorted(input_dir.iterdir())):
+        files = [f for f in input_dir.iterdir() if f.is_file()]
+        files.sort(key=lambda f: (int(f.stem) if f.stem.isdigit() else f.stem))
+
+        for i, file in enumerate(files):
             if not file.is_file():
                 raise IsADirectoryError(f"{file} is a directory")
 
@@ -18,7 +22,7 @@ class MangaNormalizer:
                     self._process_pdf(file, output_dir)
                 case ".png" | ".jpg" | ".jpeg":
                     new = output_dir / f"{i}.png"
-                    file.rename(new)
+                    shutil.copyfile(file, new)
                 case _:
                     raise ValueError(f"Unsupported file type: {ext}")
 
@@ -37,8 +41,11 @@ class MangaLoader:
         normalized_dir = path.parent / f"{path.name}_normalized"
         self.normalizer.normalize(path, normalized_dir)
 
+        files = [f for f in normalized_dir.iterdir() if f.is_file()]
+        files.sort(key=lambda f: (int(f.stem) if f.stem.isdigit() else f.stem))
+
         pages: list[MangaPagePath] = []
-        for i, file in enumerate(sorted(normalized_dir.iterdir())):
+        for i, file in enumerate(files):
             if file.suffix.lower() == ".png":
                 pages.append(MangaPagePath(index=i, path=file))
 

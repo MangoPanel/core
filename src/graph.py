@@ -1,13 +1,22 @@
+import copy
+from PIL import Image, ImageFont
+import cv2
 from pydantic import SecretStr
-from manga_processor.debug.debug_visual import VisualDebuger
+from manga_processor.bubbles.bubbletextoperation import prepare_text_shapes
+from manga_processor.debug.debug_visual import VisualDebugger
+from manga_processor.drawing.drawer import draw_polys
+from manga_processor.drawing.writer import draw_translated_text
 from manga_processor.filesys import (
     MangaLoader,
     MangaNormalizer,
+    MangaSaver,
     OCRPageLoader,
     OCRResultLoader,
     PageLoader,
+    PageSaver,
 )
 from manga_processor.filesys.savers.ocrresaver import OCRPageSaver
+from manga_processor.language.clean_ocrres import JPTextCleaner
 from manga_processor.manga.mangabubbledetector import MangaBubbleDetector
 from typing import Any, Dict, Iterable, TypedDict, List, Union, Annotated
 from langchain_openai import ChatOpenAI
@@ -23,6 +32,7 @@ from translation import translate_bubbles
 
 
 class GeneralState(TypedDict):
+    manga_name: str
     original_manga: Manga
     original_ocr_result: OCRResult | None
     original_bubbles: list[BubblePage] | None
@@ -37,28 +47,37 @@ def ocr(state: GeneralState) -> GeneralState:
     OCR node. Responsible for finding and extracting text from given pdf
     """
 
-    # ocr = PaddleOCR(
-    #     use_doc_orientation_classify=False,
-    #     use_doc_unwarping=False,
-    #     lang="japan",
-    # )
+    ocr = PaddleOCR(
+        use_doc_orientation_classify=False,
+        use_doc_unwarping=False,
+        lang="japan",
+        text_rec_score_thresh=0.5,
+    )
+
+    ocr_page_loader = OCRPageLoader()
+    ocr_page_saver: OCRPageSaver = OCRPageSaver()
+    ocr_res_loader: OCRResultLoader = OCRResultLoader()
+
     work_dir: Path = state["work_dir"]
     ocr_output_dir: Path = work_dir / "ocr_output"
     ocr_output_dir.mkdir(exist_ok=True)
     input_dir = state["original_manga"].dir_path
-    # result: Iterable[type] = ocr.predict_iter(input=f"{input_dir}")
-    # img_dir = ocr_output_dir / "img"
-    # ocr_page_saver: OCRPageSaver = OCRPageSaver()
-    # for num, res in enumerate(result):
-    #     ocr_page_saver.save_from_dirty_dict(
-    #         data_dict=res.json, index=num, output_dir_path=ocr_output_dir
-    #     )
-    #     img_path = img_dir / f"{num}"
-    #     res.save_to_img(f"{img_path}.png")
 
-    ocr_res_loader: OCRResultLoader = OCRResultLoader()
+    img_dir = ocr_output_dir / "img"
+
+    result: Iterable[type] = ocr.predict_iter(input=f"{input_dir}")
+    for num, res in enumerate(result):
+        ocr_page_saver.save_from_dirty_dict(
+            data_dict=res.json, index=num, output_dir_path=ocr_output_dir
+        )
+        img_path = img_dir / f"{num}"
+        res.save_to_img(f"{img_path}.png")
+
     ocr_res: OCRResult = ocr_res_loader.load_directory(path=ocr_output_dir)
-    return {**state, "original_ocr_result": ocr_res}
+    jp_text_cleaner = JPTextCleaner(ocr_page_loader, ocr_page_saver, ocr_res_loader)
+    clean_ocr_res = jp_text_cleaner.clean_ocr_res(ocr_res)
+
+    return {**state, "original_ocr_result": clean_ocr_res}
 
 
 def bubble_selector(state: GeneralState) -> GeneralState:
@@ -79,15 +98,19 @@ def translator(state: GeneralState) -> GeneralState:
     if og_bubbles is None:
         raise ValueError("missing data - cant translate")
 
+    bubbles_to_translate = copy.deepcopy(og_bubbles)
+
     llm: ChatOpenAI = ChatOpenAI(
-        model="Qwen3",
-        temperature=0.3,
+        model="LFM",
         base_url="http://10.10.10.20:8000/v1",
         api_key=SecretStr("abc"),
+        temperature=0.1,
+        top_p=0.1,
+        extra_body={"top_k": 50, "repetition_penalty": 1.05},
     )
 
     translated_bubbles: list[BubblePage] = translate_bubbles(
-        og_bubbles, "Japanese", "English", llm
+        bubbles_to_translate, "Japanese", "English", llm
     )
 
     return {**state, "translated_bubbles": translated_bubbles}
@@ -95,13 +118,43 @@ def translator(state: GeneralState) -> GeneralState:
 
 def text_writer(state: GeneralState) -> GeneralState:
     translated_bubbles: list[BubblePage] | None = state["translated_bubbles"]
+    og_ocr = state["original_ocr_result"]
+    manga = state["original_manga"]
+
+    page_loader = PageLoader()
+    page_saver = PageSaver()
+    ocr_page_loader = OCRPageLoader()
+    manga_norm = MangaNormalizer()
+    manga_loader = MangaLoader(manga_norm)
+
+    manga_saver = MangaSaver()
+
     if translated_bubbles is None:
         raise ValueError("Translated bubbles are missing cannot write text")
 
-    for bubble_page in translated_bubbles:
+    font_path = state["work_dir"] / ".." / ".." / "fonts" / "Inktype-MAp2J.ttf"
+    font = ImageFont.truetype(font_path)
+    for bubble_page, ocr_path in zip(translated_bubbles, og_ocr.ocr_pages):
         print(f"Page {bubble_page.index}")
         for bubble in bubble_page.bubbles:
-            print(f"bubble text: {bubble.text}")
+            print(f"Translated text: {bubble.text}")
+
+        ocr_page = ocr_page_loader.load_json(ocr_path)
+        page = page_loader.load_for_cv2(manga.pages[bubble_page.index])
+        page = draw_polys(ocr_page, page, (255, 255, 255))
+        color_coverted = cv2.cvtColor(page.image, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(color_coverted)
+        page.image = pil_image
+        text_shapes = prepare_text_shapes(bubble_page, font)
+        drawn_page = draw_translated_text(page, text_shapes)
+        output_path = state["work_dir"] / f"{bubble_page.index}.png"
+        page_saver.save_to_img_from_pil(drawn_page, output_path)
+
+    translated_manga = manga_loader.load_directory(state["work_dir"])
+    pdf_path = translated_manga.dir_path / f"{state["manga_name"]}.pdf"
+    manga_saver.save_to_pdf(translated_manga, pdf_path)
+
+    return {**state, "output_pdf_path": f"{pdf_path}"}
 
 
 # def pdf_generator(state: GeneralState) -> GeneralState:
@@ -127,9 +180,9 @@ graph.add_node("bubble_selector", bubble_selector)
 graph.add_node("translator", translator)
 graph.add_node("text_writer", text_writer)
 graph.add_edge("ocr", "bubble_selector")
-# graph.add_edge("bubble_selector", "translator")
-# graph.add_edge("translator", "text_writer")
-graph.add_edge("bubble_selector", END)
+graph.add_edge("bubble_selector", "translator")
+graph.add_edge("translator", "text_writer")
+graph.add_edge("text_writer", END)
 graph.set_entry_point("ocr")
 
 # Compile the workflow
@@ -148,6 +201,7 @@ if __name__ == "__main__":
     app_res = app.invoke(
         GeneralState(
             {
+                "manga_name": "abc",
                 "original_manga": manga,
                 "work_dir": test_work_dir,
                 "original_bubbles": None,

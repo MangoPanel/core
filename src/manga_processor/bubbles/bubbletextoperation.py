@@ -1,12 +1,13 @@
-from manga_processor.models.types import BubbleTextShape
-from cv2.typing import Point
+from typing import Iterable
+
 import cv2
 import numpy as np
+from cv2.typing import MatLike, Point
+from numpy._typing import NDArray
 from PIL.ImageFont import FreeTypeFont
-from typing import Iterable, Any
-from PIL import ImageFont
-
-from manga_processor.models.types import TextLine, BubblePage, BubbleTextShape
+from typing import Sequence
+from manga_processor.models.types import BubbleTextShape
+from manga_processor.models.types import BubblePage, TextLine
 
 
 def split_text_into_words(text: str, separator: str = " ") -> list[str]:
@@ -25,52 +26,64 @@ def get_max_line_height(word_sizes: Iterable[tuple[int, int]]) -> int:
     return np.max(np.array(word_sizes), axis=0)[1]
 
 
-def split_contour_by_line_height(contour, line_height: int) -> list[TextLine]:
-    x, y, w, h = cv2.boundingRect(contour)
+def fit_into_slices(
+    slices: list[TextLine],
+    words: list[str],
+    word_sizes: list[tuple[int, int]],
+    space_width: int,
+) -> list[TextLine] | None:
+    if not slices:
+        return None
 
-    slices: list[TextLine] = []
+    slice_idx = 0
 
-    mask = np.zeros((h, w), dtype=np.uint8)
+    for word, (w_width, _) in zip(words, word_sizes):
+        word_placed = False
 
-    cv2.drawContours(mask, [contour - [x, y]], -1, 255, -1)
+        while slice_idx < len(slices):
+            current_slice = slices[slice_idx]
+            prefix = " " if current_slice.text else ""
+            needed_width = (space_width if current_slice.text else 0) + w_width
 
-    for top in range(0, h, line_height):
-        bottom = min(top + line_height, h)
-        roi = mask[top:bottom, :]
-        column_exists = np.any(roi > 0, axis=0)
-        if np.any(column_exists):
-            indices = np.where(column_exists)[0]
-            slice_width: int = indices[-1] - indices[0] + 1
-        else:
-            slice_width = 0
+            # Check if it fits in the current slice
+            if current_slice.used_width + needed_width <= current_slice.total_width:
+                current_slice.text += prefix + word
+                current_slice.used_width += int(needed_width)
+                word_placed = True
+                break  # Move to next word
+            else:
+                # Word too wide for this slice, try the next vertical slice
+                slice_idx += 1
 
-        relative_x_offset = indices[0] if slice_width > 0 else 0
-        true_x: int = x + relative_x_offset
-        slice = TextLine(Point(true_x, top + y), slice_width)
-        slices.append(slice)
+        # If we ran out of slices and the word was never placed
+        if not word_placed:
+            return None
 
     return slices
 
 
-def fit_into_slices(
-    slices: list[TextLine], words, word_sizes, space_width
-) -> list[TextLine] | bool:
-    slice_idx = 0
-    current_slice = slices[slice_idx]
-    for word, (w_width, _) in zip(words, word_sizes):
-        prefix = " " if current_slice.text else ""
-        needed_width = (space_width if current_slice.text else 0) + w_width
+def split_contour_by_line_height(contour: MatLike, line_height: int) -> list[TextLine]:
+    x, y, w, h = cv2.boundingRect(contour)
+    slices: list[TextLine] = []
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.drawContours(mask, [contour - [x, y]], -1, 255, -1)
 
-        if current_slice.used_width + needed_width <= current_slice.total_width:
-            current_slice.text += prefix + word
-            current_slice.used_width += needed_width
-        else:
-            slice_idx += 1
+    # REMOVED the 'if top == 0...' skip logic.
+    # We want to use all available space.
+    for top in range(0, h, line_height):
+        bottom = min(top + line_height, h)
+        roi = mask[top:bottom, :]
+        column_exists = np.any(roi > 0, axis=0)
 
-            if slice_idx >= len(slices):
-                return False
-
-            current_slice = slices[slice_idx]
+        if np.any(column_exists):
+            indices = np.where(column_exists)[0]
+            slice_width = int(indices[-1] - indices[0] + 1)
+            relative_x_offset = int(indices[0])
+            # Filter out tiny slivers that can't hold even a letter
+            if slice_width > 5:
+                slices.append(
+                    TextLine((int(x + relative_x_offset), int(top + y)), slice_width)
+                )
 
     return slices
 
@@ -80,7 +93,7 @@ def prepare_text_shapes(
     font: FreeTypeFont,
     min_font_size: int = 5,
     max_font_size: int = 50,
-):
+) -> list[BubbleTextShape]:
     text_shapes: list[BubbleTextShape] = []
     for bubble in bubble_page.bubbles:
         text = bubble.text
@@ -92,11 +105,20 @@ def prepare_text_shapes(
             max_line_height = get_max_line_height(word_sizes)
             space_width = get_space_width(font_adjusted)
             slices = split_contour_by_line_height(contour, max_line_height)
+            if len(slices) == 0:
+                continue
             fitted_slices = fit_into_slices(slices, words, word_sizes, space_width)
-            if fitted_slices:
-                text_shapes.append(BubbleTextShape(fitted_slices, font_adjusted))
+            if fitted_slices is not None:
+                text_shapes.append(
+                    BubbleTextShape(textlines=fitted_slices, font=font_adjusted)
+                )
+                break
+            else:
+                if font_size > min_font_size:
+                    continue
+                else:
+                    raise Exception(
+                        f"Failed while fitting words into bubbles on page: {bubble_page.index}. Minimum allowed font size reched"
+                    )
 
-        raise Exception(
-            f"Failed while fitting words into bubbles on page: {bubble_page.index}. Minimum allowed font size reched"
-        )
     return text_shapes

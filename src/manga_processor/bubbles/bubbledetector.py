@@ -4,7 +4,7 @@ from cv2.typing import MatLike
 from manga_processor.bubbles.bubbletextoperation import prepare_text_shapes
 from pathlib import Path
 from manga_processor.bubbles.watershed import WatershedTreshold
-from manga_processor.debug.debug_visual import VisualDebuger
+from manga_processor.debug.debug_visual import VisualDebugger
 from manga_processor.drawing.drawer import (
     draw_contours,
     draw_polys,
@@ -35,29 +35,32 @@ class BubbleDetector:
         self.polygon_grouping: AutoPolyClustering = polygon_grouping
         self.watershed: WatershedTreshold = watershed
 
+        self.clean_page: MangaPage[MatLike] | None
+        self.landscape_page: MangaPage[MatLike] | None
+        self.markers_page: MangaPage[MatLike] | None
         self.watershed_page: MangaPage[MatLike] | None
         self.bubble_page: BubblePage | None
 
     def fit(self, ocr_page: OCRPage, manga_page: MangaPage[MatLike]):
-        clean_page: MangaPage[MatLike] = draw_polys(
+        self.clean_page: MangaPage[MatLike] = draw_polys(
             ocr_page, manga_page, (255, 255, 255)
         )
-        landscape_page: MangaPage[MatLike] = self.landscape_preprocessor.process(
-            clean_page
+        self.landscape_page: MangaPage[MatLike] = self.landscape_preprocessor.process(
+            self.clean_page
         )
 
         grouped_ocr_page: OCRPage = self.polygon_grouping.fit_predict(ocr_page)
         resized_ocr_page: OCRPage = scale_polys_on_page(grouped_ocr_page, 0.8)
 
         markers_mask_page: MangaPage[MatLike] = self.mask_preprocessor.process(
-            clean_page
+            self.clean_page
         )
-        markers_page: MangaPage[MatLike] = populate_with_polys(
+        self.markers_page: MangaPage[MatLike] = populate_with_polys(
             resized_ocr_page, markers_mask_page
         )
 
         self.watershed_page: MangaPage[MatLike] = self.watershed.fit_predict(
-            landscape_page, markers_page
+            self.landscape_page, self.markers_page
         )
 
         self.bubble_page = BubblePage(manga_page.index, [])
