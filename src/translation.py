@@ -1,8 +1,10 @@
+import json
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from manga_processor.models.types import BubblePage
 from typing import cast
 from langchain_openai import ChatOpenAI
+import re
 
 
 class BubbleOutput(BaseModel):
@@ -34,36 +36,45 @@ def translate_bubbles(
             " | ".join(story_context[-8:]) if story_context else "Beginning of story."
         )
 
-        print(f"Translating page {page.index} with story context: {context_string}")
+        input_payload = {
+            "page_index": page.index,
+            "items": [{"id": j, "text": b.text} for j, b in enumerate(page.bubbles)],
+        }
 
-        input_data = [
-            {
-                "page_index": page.index,
-                "bubbles": [
-                    {"id": j, "text": b.text} for j, b in enumerate(page.bubbles)
-                ],
-            }
-        ]
-
-        system_message = (
-            f"You are a Manga Translator. Context: {context_string}\n"
-            "Translate the text naturally. Avoid repeating yourself. \n"
-            "If OCR text looks broken, use context to fix it."
+        combined_prompt = (
+            f"You are a translator. Translate the following manga content to English.\n"
+            f"Context: {context_string}\n\n"
+            f"Return ONLY a JSON object following this exact schema:\n"
+            f'{{"pages": [{{"page_index": {page.index}, "bubbles": [{{"index_in_page": 0, "english_translation": "..."}}]}}]}}\n\n'
+            f"DATA: {json.dumps(input_payload, ensure_ascii=False)}"
         )
 
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": f"JSON to translate:\n{input_data}"},
-        ]
+        messages = [{"role": "user", "content": combined_prompt}]
 
         try:
-            response = cast(TranlationResponse, structured_llm.invoke(messages))
+            raw_response = llm.invoke(messages).content
+            clean_json = re.sub(
+                r"^```json\s*|```$", "", raw_response.strip(), flags=re.MULTILINE
+            )
+            response = TranlationResponse.model_validate_json(clean_json)
+
+            page_text_accumulator = []
 
             for page_update in response.pages:
                 for b_update in page_update.bubbles:
-                    trans = b_update.english_translation
-                    page.bubbles[b_update.index_in_page].text = trans
-                    story_context.append(trans)
+                    idx = b_update.index_in_page
+
+                    if 0 <= idx < len(page.bubbles):
+                        trans = b_update.english_translation
+                        page.bubbles[idx].text = trans
+                        page_text_accumulator.append(trans)
+                    else:
+                        print(f"⚠️ Model hallucinated index {idx} on page {page.index}")
+
+            full_page_text = " ".join(page_text_accumulator)
+            story_context.append(f"Page {page.index}: {full_page_text}")
+
+            story_context = story_context[-2:]
 
         except Exception as e:
             print(f"Error on page {page.index}: {e}")
