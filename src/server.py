@@ -31,19 +31,16 @@ MAX_CONTENT_LENGTH = 50 * 1024 * 1024
 
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
-
 def allowed_file(filename):
     """Check if file has allowed extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint."""
     return jsonify({"status": "ok"}), 200
 
-
-@app.route("/api/process-pdf", methods=["POST"])
+@app.route("/api/process-pdf", methods=["POST", "OPTIONS"])
 def process_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
@@ -127,12 +124,10 @@ def process_pdf():
             shutil.rmtree(temp_dir)
         return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
 
-
 @app.route("/api/status/<job_id>", methods=["GET"])
 def get_status(job_id):
     # TODO: Implement job status tracking
     return jsonify({"status": "processing", "progress": 50}), 200
-
 
 if __name__ == "__main__":
     app.run(host="localhost", port=5001, debug=True)
