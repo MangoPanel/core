@@ -1,5 +1,8 @@
 ## Instalation
 
+> [!NOTE]
+> to run `./.venv/Scripts/activate.ps1` on windows, run in powershell `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`. This execution policy is local to given powershell terminal.
+
 ### Install via pip or uv pip:
 Strongly recommend to make a virtual env using uv first:
 ```bash
