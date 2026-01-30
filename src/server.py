@@ -106,6 +106,7 @@ def process_pdf():
             mimetype="application/pdf",
             as_attachment=True,
             download_name=secure_filename(file.filename),
+            conditional=False
         )
 
         @response.call_on_close
